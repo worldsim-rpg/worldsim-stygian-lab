@@ -1,0 +1,1973 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стигийская библиотека — прототип</title>
+<style>
+/* ======================= STYLE ======================= */
+:root {
+  --bg: #16120e;
+  --bg-stripe-a: #1a1510;
+  --bg-stripe-b: #211a13;
+  --panel-bg: #1f1913;
+  --block-bg: #251e16;
+  --border: #3a3128;
+  --text: #d6c9ae;
+  --text-muted: #8a7c66;
+  --text-faint: #5d5344;
+  --accent-gold: #c9a227;
+  --accent-gold-bright: #e6c34d;
+  --ring-current: #f0e3c0;
+  --danger: #a04040;
+  --danger-text: #d07a6a;
+  --success: #7fa05a;
+  --btn-bg: #2c241b;
+  --btn-bg-hover: #382e22;
+  --btn-border: #4a3f31;
+  --edge: #4a3f31;
+  --node-entrance: #c9a227;
+  --node-hall: #6f8f5a;
+  --node-archive: #a98e5e;
+  --node-service: #5e7d8c;
+  --node-strange: #8c6e9c;
+  --node-living: #5e9c83;
+  --node-void: #a04048;
+  --node-stub: #8a7c66;
+  --font-flavor: Georgia, "Times New Roman", serif;
+  --font-ui: system-ui, "Segoe UI", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { overflow: auto; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 14px;
+}
+body, #screen-game { min-width: 1240px; min-height: 680px; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 5px; }
+
+button {
+  font-family: var(--font-ui);
+  font-size: 14px;
+  border-radius: 6px;
+  padding: 8px 14px;
+  cursor: pointer;
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text);
+  transition: background-color 120ms;
+}
+button:hover { background: var(--btn-bg-hover); }
+button:focus, input:focus { outline: 2px solid var(--accent-gold); outline-offset: 2px; }
+.btn-primary { background: var(--accent-gold); color: var(--bg); border: none; }
+.btn-primary:hover { background: var(--accent-gold-bright); }
+.btn-danger { background: transparent; border: 1px solid var(--danger); color: var(--danger-text); }
+.btn-danger:hover { background: rgba(160, 64, 64, 0.15); }
+
+.screen { display: flex; }
+.screen.hidden { display: none; }
+#screen-start, #screen-win, #screen-lose {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 24px;
+}
+.center-col {
+  width: 100%;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.screen-title {
+  font-family: var(--font-flavor);
+  font-size: 36px;
+  font-weight: normal;
+  color: var(--accent-gold);
+  text-align: center;
+  margin: 0 0 4px;
+}
+.danger-title { color: var(--danger-text); }
+.start-subtitle {
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text-muted);
+  text-align: center;
+  margin: 0 0 12px;
+}
+.section-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+#preset-list { display: flex; flex-direction: column; gap: 10px; }
+.preset-card {
+  display: block;
+  background: var(--block-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+  cursor: pointer;
+}
+.preset-card.selected { border: 2px solid var(--accent-gold); padding: 11px; }
+.preset-card input { position: absolute; opacity: 0; pointer-events: none; }
+.preset-name { font-family: var(--font-flavor); font-size: 17px; color: var(--text); }
+.preset-question {
+  font-family: var(--font-flavor);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+.preset-desc { font-family: var(--font-ui); font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+#seed-input {
+  background: var(--btn-bg);
+  border: 1px solid var(--btn-border);
+  color: var(--text);
+  border-radius: 6px;
+  padding: 8px 10px;
+  font-size: 14px;
+  font-family: var(--font-ui);
+  width: 100%;
+}
+.end-text {
+  font-family: var(--font-flavor);
+  font-size: 16px;
+  text-align: center;
+  line-height: 1.55;
+  margin: 0;
+}
+.stats { display: flex; flex-direction: column; gap: 8px; margin: 8px 0; }
+.stat-row { display: flex; justify-content: space-between; font-size: 15px; }
+.stat-label { color: var(--text-muted); }
+.stat-value { color: var(--text); }
+
+#screen-game { flex-direction: column; height: 100vh; }
+#topbar {
+  height: 48px;
+  flex: 0 0 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  background: var(--panel-bg);
+  border-bottom: 1px solid var(--border);
+}
+#topbar-title { font-size: 14px; }
+#topbar-buttons { display: flex; gap: 8px; }
+#game-layout { flex: 1; display: flex; min-height: 0; }
+#map-wrap { flex: 1; overflow: auto; }
+#map { display: block; margin: 0 auto; }
+#side {
+  width: 380px;
+  flex: 0 0 380px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--panel-bg);
+  border-left: 1px solid var(--border);
+  min-height: 0;
+  overflow-y: auto;
+}
+#side > section {
+  background: var(--block-bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 12px;
+}
+
+.status-row { font-size: 14px; margin-bottom: 6px; }
+.status-row .val { font-weight: bold; }
+.bar { height: 6px; border-radius: 3px; background: var(--btn-bg); margin: 4px 0 8px; }
+.bar-fill { height: 6px; border-radius: 3px; }
+.bar-fill.hp { background: var(--danger); }
+.bar-fill.prog { background: var(--accent-gold); }
+.success-text { color: var(--success); }
+.goal-ready { font-size: 12px; color: var(--accent-gold); margin-bottom: 6px; }
+.status-goal { font-size: 12px; color: var(--text-muted); margin-bottom: 4px; }
+.status-seed { font-size: 11px; color: var(--text-faint); }
+
+.room-name { font-family: var(--font-flavor); font-size: 19px; color: var(--text); margin: 6px 0; }
+.room-desc { font-family: var(--font-flavor); font-size: 14px; line-height: 1.55; }
+.room-detail {
+  font-family: var(--font-flavor);
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.room-goal-q {
+  font-family: var(--font-flavor);
+  font-style: italic;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+.creature-line { font-family: var(--font-ui); font-size: 14px; margin-top: 8px; }
+.creature-line.hostile { color: var(--danger-text); }
+
+.inv-slot { height: 28px; display: flex; align-items: center; font-size: 13px; }
+.inv-empty { color: var(--text-faint); }
+.inv-passive { color: var(--text); }
+.inv-waiting { color: var(--text-muted); }
+.inv-use { width: 100%; height: 24px; padding: 0 8px; font-size: 13px; text-align: left; }
+.flag-line { font-size: 12px; color: var(--accent-gold); margin-top: 6px; }
+
+#actions { display: flex; flex-direction: column; gap: 8px; }
+.action-btn { width: 100%; }
+.surrender-prompt { font-size: 13px; color: var(--text-muted); }
+
+#log {
+  flex: 1;
+  min-height: 120px;
+  overflow-y: auto;
+}
+#log-list { margin-top: 8px; }
+.log-entry {
+  display: flex;
+  padding: 4px 8px;
+  border-left: 3px solid var(--text-muted);
+  margin-bottom: 2px;
+}
+.log-turn {
+  flex: 0 0 32px;
+  text-align: right;
+  color: var(--text-faint);
+  margin-right: 8px;
+  font-size: 13px;
+}
+.log-text { font-size: 13px; color: var(--text); }
+.log-combat { border-left-color: var(--danger-text); }
+.log-find { border-left-color: var(--accent-gold); }
+.log-progress { border-left-color: var(--success); }
+.log-system { border-left-color: var(--text-muted); }
+.log-system .log-text { color: var(--text-muted); }
+
+.band-a { fill: var(--bg-stripe-a); }
+.band-b { fill: var(--bg-stripe-b); }
+.band-label { fill: var(--text-faint); font-family: var(--font-ui); font-size: 11px; letter-spacing: 1px; }
+.edge { stroke: var(--edge); stroke-width: 2; fill: none; }
+.edge-stub { stroke-dasharray: 4 4; }
+.hit-circle { fill: transparent; }
+.node-circle { stroke: var(--border); stroke-width: 1; }
+.tag-entrance { fill: var(--node-entrance); }
+.tag-hall { fill: var(--node-hall); }
+.tag-archive { fill: var(--node-archive); }
+.tag-service { fill: var(--node-service); }
+.tag-strange { fill: var(--node-strange); }
+.tag-living { fill: var(--node-living); }
+.tag-void { fill: var(--node-void); }
+.node-letter { fill: var(--bg); font-family: var(--font-ui); font-size: 13px; font-weight: bold; }
+.node-label { fill: var(--text-muted); font-family: var(--font-ui); font-size: 11px; }
+.node-label.current { fill: var(--text); }
+.stub-circle { fill: none; stroke: var(--node-stub); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.stub-circle.hinted { stroke: var(--accent-gold); }
+.stub-mark { fill: var(--node-stub); font-family: var(--font-ui); font-size: 14px; }
+.stub-mark.hinted { fill: var(--accent-gold); }
+.hover-ring { fill: none; stroke: var(--accent-gold); stroke-width: 2; opacity: 0; transition: opacity 100ms; }
+#nodes g.clickable { cursor: pointer; }
+#nodes g.clickable:hover .hover-ring { opacity: 1; }
+.node-inner {
+  transition: opacity 250ms ease-out, transform 250ms ease-out;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+g.is-new .node-inner { opacity: 0; transform: scale(0.6); }
+#player-marker { transition: transform 300ms ease-in-out; pointer-events: none; }
+#player-marker circle { fill: none; stroke: var(--ring-current); stroke-width: 2.5; }
+</style>
+</head>
+<body>
+<div id="screen-start" class="screen">
+  <div class="center-col">
+    <h1 id="start-title" class="screen-title"></h1>
+    <p id="start-subtitle" class="start-subtitle"></p>
+    <div id="start-question-header" class="section-label"></div>
+    <div id="preset-list"></div>
+    <div id="seed-label" class="section-label"></div>
+    <input id="seed-input" type="text" maxlength="32" autocomplete="off">
+    <button id="btn-start" class="btn-primary"></button>
+  </div>
+</div>
+
+<div id="screen-game" class="screen hidden">
+  <header id="topbar">
+    <div id="topbar-title"></div>
+    <div id="topbar-buttons">
+      <button id="btn-new-game"></button>
+      <button id="btn-reset-save"></button>
+    </div>
+  </header>
+  <main id="game-layout">
+    <div id="map-wrap">
+      <svg id="map">
+        <g id="bands"></g>
+        <g id="edges"></g>
+        <g id="nodes"></g>
+        <g id="player-marker"><circle r="21"></circle></g>
+      </svg>
+    </div>
+    <aside id="side">
+      <section id="status"></section>
+      <section id="room-panel"></section>
+      <section id="inventory"></section>
+      <section id="actions"></section>
+      <section id="log">
+        <div id="log-title" class="section-label"></div>
+        <div id="log-list"></div>
+      </section>
+    </aside>
+  </main>
+</div>
+
+<div id="screen-win" class="screen hidden">
+  <div class="center-col">
+    <h1 id="win-title" class="screen-title"></h1>
+    <p id="win-text" class="end-text"></p>
+    <div id="win-stats" class="stats"></div>
+    <button id="btn-win-restart" class="btn-primary"></button>
+  </div>
+</div>
+
+<div id="screen-lose" class="screen hidden">
+  <div class="center-col">
+    <h1 id="lose-title" class="screen-title danger-title"></h1>
+    <p id="lose-text" class="end-text"></p>
+    <div id="lose-stats" class="stats"></div>
+    <button id="btn-lose-restart" class="btn-primary"></button>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ====================================================================
+// 1. CONSTANTS / DATA
+// ====================================================================
+
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+const CFG = Object.freeze({
+  SAVE_KEY: 'stygian-proto-v1',
+  SAVE_VERSION: 1,
+  HP_MAX: 20,
+  START_PROGRESS: 3,
+  INVENTORY_MAX: 6,
+  TALK_DC: 12,
+  FLEE_DC: 10,
+  ENCOUNTER_PERIOD: 3,
+  WANDER_LIMIT: 5,
+  DEEP_BONUS_DEPTH: 6,
+  DEEP_BONUS_DEPTH_2: 10,
+  REST_HEAL: 2,
+  MAX_NODES_PER_DEPTH: 10,
+  TABLE_ROWS: 30,
+  SVG_W: 1000,
+  BAND_H: 120,
+  SLOT_W: 100,
+  SLOTS_PER_BAND: 10,
+  MAP_PAD_X: 50,
+  MAP_PAD_Y: 60,
+  ENTRANCE_SLOT: 5,
+  NODE_R: 16,
+  STUB_R: 14,
+  HIT_R: 22,
+  LOG_MAX: 50
+});
+const SPECIAL_ROWS = Object.freeze([4, 8, 12, 16, 20, 24, 27, 30]);
+
+const TAG_LETTERS = Object.freeze({
+  entrance: 'В',
+  hall: 'З',
+  archive: 'А',
+  service: 'С',
+  strange: 'И',
+  living: 'Ж',
+  void: 'П'
+});
+
+const LOCATIONS = Object.freeze([
+  { id: 'entrance_foyer', name: 'Входное фойе', tag: 'hall', special: false,
+    desc: 'Гардеробная стойка, забытые зонты, доска объявлений. Объявления на разных языках, но все — о режиме работы.' },
+  { id: 'reading_hall', name: 'Читальный зал', tag: 'hall', special: false,
+    desc: 'Ряды дубовых столов с лампами под зелёными абажурами. Один стул отодвинут, будто читатель вышел на минуту.' },
+  { id: 'card_catalogue', name: 'Картотека', tag: 'archive', special: false,
+    desc: 'Шкафы с сотнями ящичков, подписанных выцветшими чернилами. Каталог честен, но неполон.' },
+  { id: 'lending_desk', name: 'Стойка выдачи', tag: 'service', special: true,
+    desc: 'Конторка с журналом выдачи и колокольчиком для вызова. Последняя запись сделана сегодняшним числом.' },
+  { id: 'periodicals_room', name: 'Зал периодики', tag: 'hall', special: false,
+    desc: 'Газеты на деревянных штангах, журналы в коленкоровых папках. Даты выпуска расходятся на столетия.' },
+  { id: 'main_stacks', name: 'Книгохранилище', tag: 'archive', special: false,
+    desc: 'Тесные ряды стеллажей до самого потолка. Между ними помещается один человек и его эхо.' },
+  { id: 'map_room', name: 'Картохранилище', tag: 'archive', special: false,
+    desc: 'Плоские широкие ящики с картами и атласами. Некоторые береговые линии вы не можете узнать.' },
+  { id: 'bindery', name: 'Переплётная мастерская', tag: 'service', special: true,
+    desc: 'Прессы, шила, костяные гладилки, запах кожи и клея. Работа аккуратно прервана на середине.' },
+  { id: 'archivist_office', name: 'Кабинет архивариуса', tag: 'service', special: false,
+    desc: 'Письменный стол, личная картотека, пресс-папье. Хозяин вышел — судя по пыли, давно.' },
+  { id: 'storage_cellar', name: 'Подсобный подвал', tag: 'service', special: false,
+    desc: 'Ящики с нерасставленными поступлениями. Пыль лежит ровно, как первый снег.' },
+  { id: 'flooded_stacks', name: 'Затопленное хранилище', tag: 'strange', special: false,
+    desc: 'Чёрная вода стоит по щиколотку между стеллажами. Книги под водой остались сухими.' },
+  { id: 'skeleton_gallery', name: 'Собрание скелетов', tag: 'archive', special: true,
+    desc: 'Витрины со скелетами существ, знакомых и не очень. Таблички написаны от руки и не раз исправлены.' },
+  { id: 'gear_gallery', name: 'Галерея шестерён', tag: 'strange', special: false,
+    desc: 'Под решётчатым полом медленно вращаются огромные механизмы. Что они приводят в движение, отсюда не видно.' },
+  { id: 'candle_hall', name: 'Зал тысячи свечей', tag: 'strange', special: false,
+    desc: 'Свечи горят на каждой горизонтальной поверхности. Пламя не дрожит, воск не тает.' },
+  { id: 'counting_stair', name: 'Винтовая лестница', tag: 'strange', special: false,
+    desc: 'Лестница вьётся глубже, чем позволяет здание. Число ступеней при подъёме и спуске не совпадает.' },
+  { id: 'paper_garden', name: 'Бумажный сад', tag: 'living', special: true,
+    desc: 'Деревья, сложенные из исписанных страниц, тропинки из обложек. В листве шуршит то ли ветер, то ли чтение вслух.' },
+  { id: 'ink_pool', name: 'Чернильный пруд', tag: 'strange', special: false,
+    desc: 'Круглый бассейн, до краёв полный чернил. Изредка поверхность складывается в слова на незнакомом языке.' },
+  { id: 'census_hall', name: 'Зал переписи', tag: 'archive', special: false,
+    desc: 'Стеллажи одинаковых томов: имена, даты, причины. Где-то на этих полках есть том и про вас.' },
+  { id: 'whispering_gallery', name: 'Шепчущая галерея', tag: 'strange', special: false,
+    desc: 'Свод собирает и разносит обрывки чужих разговоров. Некоторые из них отвечают на ваши мысли.' },
+  { id: 'librarians_post', name: 'Пост Библиотекарей', tag: 'service', special: true,
+    desc: 'Опрятная служебная комната: журнал обходов, пять крючков для мантий. Заняты не все.' },
+  { id: 'inverted_stacks', name: 'Опрокинутое хранилище', tag: 'void', special: false,
+    desc: 'Стеллажи растут с потолка, и выроненная книга падает вверх. Пол при этом уверенно держит вас.' },
+  { id: 'endless_corridor', name: 'Бесконечный коридор', tag: 'void', special: false,
+    desc: 'Коридор сходится в точку, как урок перспективы. Сколько ни иди, точка не приближается.' },
+  { id: 'book_graveyard', name: 'Кладбище книг', tag: 'living', special: false,
+    desc: 'Курганы истлевших переплётов под слоем пыли. Из-под них слышно медленное, терпеливое шуршание.' },
+  { id: 'memory_vault', name: 'Хранилище воспоминаний', tag: 'void', special: true,
+    desc: 'Полки запечатанных стеклянных банок, в каждой плещется чей-то день. Этикетки подписаны почерком, который вы узнаёте.' },
+  { id: 'unwritten_wing', name: 'Крыло ненаписанного', tag: 'void', special: false,
+    desc: 'Переплёты без страниц и страницы без букв: книги, которые никогда не будут написаны. Бумага на ощупь тёплая.' },
+  { id: 'living_archive', name: 'Живой архив', tag: 'living', special: false,
+    desc: 'Стены здесь мягкие и движутся в такт медленному дыханию. Стеллажи слишком похожи на рёбра, чтобы это скрывать.' },
+  { id: 'star_atrium', name: 'Звёздный атриум', tag: 'void', special: true,
+    desc: 'Купол открыт в небо, которого нет ни над одним из миров. Созвездия медленно перестраиваются в строки.' },
+  { id: 'ink_shore', name: 'Берег чернильного моря', tag: 'void', special: false,
+    desc: 'Мраморный пол уходит под чёрный прибой. В волнах растворяются все недоговорённые фразы.' },
+  { id: 'soul_index', name: 'Указатель душ', tag: 'archive', special: false,
+    desc: 'Каталог всех, кто когда-либо жил. Ящики открываются только тем, кого уже можно каталогизировать.' },
+  { id: 'library_heart', name: 'Сердце библиотеки', tag: 'void', special: true,
+    desc: 'Зал, в который сходятся все коридоры сразу. Здесь становится ясно, кто кого читает.' }
+]);
+
+const DETAILS = Object.freeze([
+  { id: 'untouched_dust', text: 'Пыль лежит ровным слоем, и ваши следы в ней — первые.' },
+  { id: 'paper_smell', text: 'Пахнет старой бумагой, воском и едва заметно — плесенью.' },
+  { id: 'brass_rail', text: 'Вдоль полок тянется латунный рельс с передвижной лестницей.' },
+  { id: 'abandoned_tea', text: 'На столике остывает чашка чая, рядом книга, оставленная корешком вверх.' },
+  { id: 'pencil_margins', text: 'Поля здешних книг исписаны карандашом — всюду один и тот же почерк.' },
+  { id: 'creaking_parquet', text: 'Паркет скрипит на каждом шагу и выдаёт вас всему ярусу.' },
+  { id: 'green_lampshades', text: 'Здесь горят лампы под зелёными абажурами, хотя выключателей нигде нет.' },
+  { id: 'spilled_cards', text: 'По полу рассыпаны каталожные карточки, кем-то наполовину собранные в стопку.' },
+  { id: 'unfinished_repair', text: 'Здесь прервали работу: инструменты разложены, клей в плошке ещё не застыл.' },
+  { id: 'single_bell', text: 'Издалека доносится одиночный удар колокола, глухой, словно из-под воды.' },
+  { id: 'clock_nowhere', text: 'Размеренно тикают часы, которых нигде не видно.' },
+  { id: 'wrong_shadows', text: 'Тени лежат не с той стороны, с которой падает свет.' },
+  { id: 'shifting_furniture', text: 'Стоит отвернуться, и предметы оказываются чуть не там, где были.' },
+  { id: 'vanishing_ink', text: 'С потолка срываются капли чернил и исчезают, не долетая до пола.' },
+  { id: 'warm_spines', text: 'Корешки книг тёплые на ощупь, как бок спящего животного.' },
+  { id: 'your_handwriting', text: 'На полях случайной страницы вы находите своё имя, выведенное вашим почерком.' },
+  { id: 'paper_moths', text: 'Под потолком кружат мотыльки, сложенные из исписанных страниц.' },
+  { id: 'extra_door', text: 'Дверей здесь на одну больше, чем было, когда вы вошли.' },
+  { id: 'following_whisper', text: 'Шелест перелистываемых страниц следует за вами и стихает, стоит обернуться.' },
+  { id: 'dust_silhouette', text: 'Пыль в воздухе на миг складывается в человеческий силуэт и осыпается.' },
+  { id: 'slow_gravity', text: 'Уроненные предметы падают медленнее, чем должны.' },
+  { id: 'wrong_window', text: 'Единственное окно выходит на место, которого не может существовать.' },
+  { id: 'crawling_letters', text: 'Буквы сползают со страниц и ручейками утекают в щели пола.' },
+  { id: 'early_echo', text: 'Эхо здесь звучит на мгновение раньше сказанного.' },
+  { id: 'unprompted_reflection', text: 'Вы замечаете своё отражение там, где нечему отражать.' },
+  { id: 'frozen_dust', text: 'Пыль висит в воздухе неподвижно, как остановленный кадр.' },
+  { id: 'ink_blood', text: 'Случайная царапина здесь кровоточит чернилами и затягивается строчкой мелкого текста.' },
+  { id: 'breathing_floor', text: 'Пол медленно поднимается и опускается: помещение дышит.' },
+  { id: 'present_tense', text: 'В раскрытой книге кто-то описывает ваши действия — настоящим временем, без запоздания.' },
+  { id: 'one_book', text: 'Все книги здесь — одна и та же книга, и она о том, как вы сюда пришли.' }
+]);
+
+const EVENT_BY_ROLL = Object.freeze([
+  'silence', 'silence', 'silence', 'misinfo', 'meet', 'meet', 'meet',
+  'meet_danger', 'phenomenon', 'find', 'find', 'topic_book'
+]);
+const EVENT_NAMES = Object.freeze({
+  silence: 'Тишина', misinfo: 'Дезинформация', meet: 'Встреча',
+  meet_danger: 'Опасная встреча', phenomenon: 'Феномен',
+  find: 'Находка', topic_book: 'Книга по теме'
+});
+const PHENOMENON_NAMES = Object.freeze([
+  'Шёпот стеллажей', 'Сдвиг пространства', 'Пыльная мгла'
+]);
+
+const ITEMS = Object.freeze([
+  { id: 'bandage', name: 'Бинты', kind: 'use',
+    text: 'Чистые полосы ткани, пахнущие воском.' },
+  { id: 'paper_knife', name: 'Латунный нож для бумаг', kind: 'passive',
+    text: 'Тяжёлый нож для разрезания нечитаных страниц.' },
+  { id: 'catalog_card', name: 'Каталожная карточка', kind: 'use',
+    text: 'Карточка с шифром, который сам ведёт к нужной полке.' },
+  { id: 'lantern', name: 'Фонарь с маслом', kind: 'use',
+    text: 'Масляный фонарь; со светом легче найти дорогу назад.' },
+  { id: 'ward_bookmark', name: 'Закладка-оберег', kind: 'use',
+    text: 'Шёлковая закладка со старой печатью библиотеки.' }
+]);
+const ITEM_BY_ID = Object.freeze({
+  bandage: ITEMS[0],
+  paper_knife: ITEMS[1],
+  catalog_card: ITEMS[2],
+  lantern: ITEMS[3],
+  ward_bookmark: ITEMS[4]
+});
+
+const CREATURES = Object.freeze([
+  { row: 1, id: 'lost_reader', name: 'Заблудившийся читатель', hp: 3, dmg: 1, knowing: false, mute: false,
+    desc: 'Измождённый человек с читательским билетом, истёкшим полвека назад; уже не помнит, что искал, но боится уйти без ответа.' },
+  { row: 2, id: 'moth_swarm', name: 'Рой книжной моли', hp: 2, dmg: 1, knowing: false, mute: true,
+    desc: 'Серое облако моли, выедающей из страниц не бумагу, а смысл; в полёте на миг складывается в обрывки фраз.' },
+  { row: 3, id: 'novice_clerk', name: 'Служитель-новичок', hp: 4, dmg: 1, knowing: true, mute: false,
+    desc: 'Молодой служитель с тележкой нерасставленных книг; заблудился между ярусами, но охотно делится тем, что успел узнать.' },
+  { row: 4, id: 'origami_golem', name: 'Оригами-голем', hp: 5, dmg: 2, knowing: false, mute: false,
+    desc: 'Фигура в человеческий рост, сложенная из тысяч страниц без единой капли клея.' },
+  { row: 5, id: 'dust_elemental', name: 'Пылевой элементаль', hp: 6, dmg: 2, knowing: false, mute: true,
+    desc: 'Столб библиотечной пыли, помнящий форму всех, кто здесь проходил.' },
+  { row: 6, id: 'grey_librarian', name: 'Библиотекарь серого ордена', hp: 5, dmg: 2, knowing: true, mute: false,
+    desc: 'Фигура в серой мантии с ведром клейстера и мягкой щёткой; чинит всё, что стоит на месте достаточно долго.' },
+  { row: 7, id: 'predator_book', name: 'Ожившая книга-хищник', hp: 7, dmg: 3, knowing: false, mute: false,
+    desc: 'Тяжёлый том в кожаном переплёте, выучившийся охотиться; хлопает обложкой, как пастью, и умеет ждать.' },
+  { row: 8, id: 'ink_ghost', name: 'Чернильный призрак', hp: 6, dmg: 3, knowing: false, mute: false,
+    desc: 'Полупрозрачный силуэт из густых чернил; шепчет фразы, которые когда-то вымарали из книг.' },
+  { row: 9, id: 'black_librarian', name: 'Библиотекарь чёрного ордена', hp: 8, dmg: 3, knowing: true, mute: false,
+    desc: 'Фигура в чёрной мантии без знаков различия; рядом с ней страницы сами закрываются.' },
+  { row: 10, id: 'skeleton_archivist', name: 'Скелет-архивариус', hp: 9, dmg: 3, knowing: true, mute: false,
+    desc: 'Скелет в истлевшем халате, продолжающий опись фонда; смерть для него — не причина бросать каталог.' },
+  { row: 11, id: 'vault_warden', name: 'Страж запретного отдела', hp: 12, dmg: 4, knowing: false, mute: true,
+    desc: 'Безликая фигура из переплётного железа у запретных стеллажей; оживает, когда к полкам тянутся чужие руки.' },
+  { row: 12, id: 'that_which_reads', name: 'То-Что-Читает', hp: 14, dmg: 5, knowing: true, mute: false,
+    desc: 'Нечто, что читает саму библиотеку; рядом с ним вы чувствуете себя строкой, на которой остановился взгляд.' }
+]);
+
+const GOALS = Object.freeze([
+  { id: 'easy', name: 'Забытый рецепт',
+    question: 'Каков был рецепт чернил, которыми написан Велленхольмский кодекс?',
+    desc: 'Бытовое знание. Прогресс 16, глубина не менее 4.',
+    threshold: 16, minDepth: 4 },
+  { id: 'medium', name: 'Утраченная биография',
+    question: 'Кем на самом деле была картограф Ирен Вольц и куда она исчезла?',
+    desc: 'Редкое знание. Прогресс 20, глубина не менее 6.',
+    threshold: 20, minDepth: 6 },
+  { id: 'hard', name: 'Запретный гримуар',
+    question: 'Что написано на последней странице Гримуара Бессонных и почему её нельзя читать вслух?',
+    desc: 'Опасное знание. Прогресс 30, глубина не менее 10.',
+    threshold: 30, minDepth: 10 }
+]);
+
+const UI_SILENCE = Object.freeze([
+  'Тихо. Слышно, как оседает пыль.',
+  'Где-то далеко закрылась книга.',
+  'Полки молчат. Пока.',
+  'Ничего не происходит. Здесь это редкость.',
+  'Лампы горят ровно. Никого.',
+  'Скрипнула половица — ваша собственная.',
+  'Шелест страниц стих, едва вы прислушались.',
+  'Пахнет пылью и чужим временем.',
+  'Воздух неподвижен, как закрытая книга.',
+  'Библиотека вас пока не заметила.'
+]);
+
+const UI_TRANSITIONS = Object.freeze([
+  'Вы проходите между стеллажами.',
+  'Дверь поддаётся без звука.',
+  'Коридор глотает ваши шаги.',
+  'Полки расступаются ровно настолько, чтобы пройти.',
+  'Свет меняется: вы уже не там, где были.',
+  'Под ногами другой пол — значит, другая комната.',
+  'Стеллажи смыкаются за спиной.',
+  'Несколько шагов в полутьме — и проход выводит вас дальше.',
+  'Порог переступается легче, чем следовало бы.',
+  'Вы идёте на свет следующей лампы.'
+]);
+
+const UI = Object.freeze({
+  app_title: 'Стигийская библиотека',
+  start_subtitle: 'Соло-прототип depth crawl по мотивам The Stygian Library',
+  start_question_header: 'Исследовательский вопрос',
+  start_seed_label: 'Seed',
+  start_seed_placeholder: 'Пусто — случайный seed',
+  start_enter_button: 'Войти в библиотеку',
+  topbar_new_game: 'Новая игра',
+  topbar_reset_save: 'Сбросить сейв',
+  status_hp: 'HP {hp}/{hpMax}',
+  status_depth: 'Глубина {depth} (макс. {maxDepth}, нужно {minDepth})',
+  status_progress: 'Прогресс {progress}/{threshold}',
+  status_turn: 'Ход {turn}',
+  status_goal: 'Цель: {goalName}',
+  status_seed: 'Seed {seed}',
+  status_goal_ready: 'Условие выполнено — возвращайтесь ко входу',
+  room_header: 'Вы находитесь',
+  room_detail_prefix: 'Деталь:',
+  room_entrance_desc: 'Двери наружу совсем рядом.',
+  room_creature_line: 'Перед вами: {name} (hp {hp}) — {reaction}',
+  room_creature_talk_suffix: '; разговор: успех при d20 >= {n}',
+  reaction_friendly: 'дружелюбно',
+  reaction_neutral: 'нейтрально',
+  reaction_wary: 'настороженно',
+  reaction_hostile: 'враждебно',
+  inventory_header: 'Инвентарь {n}/6',
+  inventory_empty_slot: '—',
+  inventory_passive_suffix: '(пассивный)',
+  inventory_waiting_suffix: '(ожидание)',
+  inventory_lantern_ready: 'Фонарь готов: следующее бегство удастся',
+  inventory_ward_ready: 'Оберег готов: следующий урон от существа — 0',
+  action_look: 'Осмотреться',
+  action_rest: 'Отдохнуть',
+  action_talk: 'Говорить',
+  action_fight: 'Сражаться',
+  action_flee: 'Бежать',
+  action_surrender: 'Сдаться',
+  surrender_prompt: 'Покинуть партию? Сохранение будет удалено.',
+  surrender_confirm: 'Да, сдаться',
+  surrender_cancel: 'Отмена',
+  log_header: 'Журнал',
+  map_depth_label: 'Глубина {n}',
+  map_entrance_label: 'Вход',
+  win_title: 'Знание найдено',
+  win_text: 'Вы выбрались на поверхность с ответом на вопрос. Библиотека отпустила вас — на этот раз.',
+  lose_title: 'Библиотека забрала вас',
+  lose_text: 'Ваши HP опустились до нуля. Где-то в глубине стеллажей появилась новая книга — с вашей историей.',
+  result_turns: 'Ходов',
+  result_max_depth: 'Максимальная глубина',
+  result_progress: 'Прогресс',
+  result_seed: 'Seed',
+  new_game_button: 'Новая партия'
+});
+
+const LOG_TEMPLATES = Object.freeze({
+  log_start: 'Партия началась. Seed {seed}. Цель: {goalName} (прогресс {threshold}, глубина {minDepth}).',
+  log_loaded: 'Игра загружена.',
+  log_move: '{flavor} Вы в: {roomName}.',
+  log_room_open: 'Новая комната (глубина {d}): локация d20+{d} = {locRow} — {locName}; деталь d20+{d} = {detRow}.',
+  log_event: 'Событие (d12+{mod} = {roll}): {eventName}.',
+  log_silence: '{text}',
+  log_misinfo: 'Дезинформация: прогресс -2 (теперь {progress}).',
+  log_creature: '{name}: {desc} Реакция (2d6{mod} = {r}): {reaction}.',
+  log_phenomenon: 'Феномен (d6 = {f}): {name}.',
+  log_progress: '{source}: прогресс +{n} (теперь {progress}).',
+  log_find: 'Найдено: {itemName}. {itemText}',
+  log_inventory_full: 'Предмет остался лежать: инвентарь полон.',
+  log_use: 'Использовано: {itemName}.',
+  log_search: 'Осмотр (d20 = {r}): {outcome}.',
+  log_rest: 'Отдых: HP +{n} (теперь {hp}/{hpMax}).',
+  log_talk: 'Говорить (d20{mod} = {r} против {dc}): {outcome}.',
+  log_player_hit: 'Вы бьёте {name}: d6{mod} = {n} урона (у существа {chp} hp).',
+  log_hostile_turn: '{name} становится враждебным.',
+  log_creature_hit: '{name} отвечает: {dmg} урона (HP {hp}/{hpMax}).',
+  log_ward_block: 'Оберег гасит урон.',
+  log_loot: '{name} повержено. Добыча (d6 = {r}): {outcome}.',
+  log_flee: 'Бегство (d20 = {r} против {dc}): {outcome}.',
+  log_flee_lantern: 'Фонарь освещает путь: бегство удалось.',
+  log_hint: 'Вам указали направление: одна из заглушек отмечена на карте.',
+  log_wander: 'Вы кружите по знакомым залам: прогресс -1 (теперь {progress}).',
+  log_goal_lost: 'Условие победы больше не выполнено: прогресс упал ниже порога.',
+  log_wander_check: 'Шорох между стеллажами (d20 = {r}, порог {p}): {outcome}.',
+  log_frontier: 'Где-то рядом открывается новый проход.',
+  log_save_error: 'Не удалось сохранить игру.',
+  outcome_nothing: 'ничего',
+  outcome_progress: 'прогресс',
+  outcome_find: 'находка',
+  outcome_special: 'особая локация',
+  outcome_loot_nothing: 'ничего',
+  outcome_loot_item: 'предмет',
+  outcome_loot_item_progress: 'предмет и прогресс',
+  outcome_talk_success: 'успех — реакция улучшена',
+  outcome_talk_fail: 'провал — реакция ухудшена',
+  outcome_flee_success: 'успех',
+  outcome_flee_fail: 'провал — свободная атака',
+  outcome_wander_nothing: 'показалось',
+  outcome_wander_someone: 'кто-то здесь',
+  src_topic_book: 'Книга по теме',
+  src_whisper: 'Шёпот стеллажей',
+  src_talk: 'Разговор',
+  src_search_special: 'Осмотр особой локации',
+  src_search: 'Осмотр',
+  src_loot: 'Добыча'
+});
+
+// ====================================================================
+// 2. RNG
+// ====================================================================
+
+function mulberry32(a) {
+  return function () {
+    var t = a += 0x6D2B79F5;
+    t = Math.imul(t ^ t >>> 15, t | 1);
+    t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// Единственный источник случайности. Значение детерминированно зависит
+// только от пары (seed, counter); counter лежит в state и попадает в сейв,
+// поэтому загрузка продолжает ту же последовательность бросков.
+function rand() {
+  state.rng.counter += 1;
+  var h = (state.rng.seed ^ Math.imul(state.rng.counter, 0x9E3779B9)) >>> 0;
+  return mulberry32(h)();
+}
+
+function roll(sides) {                 // бросок dN: целое 1..sides
+  return 1 + Math.floor(rand() * sides);
+}
+
+function rollRange(n) {                // целое 1..n, ровно одно чтение
+  return roll(n);                      // даже при n = 1
+}
+
+// ====================================================================
+// 3. STATE
+// ====================================================================
+
+let state = null;
+
+function newState(seed, presetId) {
+  const goal = GOALS.find(function (g) { return g.id === presetId; }) || GOALS[0];
+  state = {
+    meta: { version: CFG.SAVE_VERSION },
+    rng: { seed: seed >>> 0, counter: 0 },
+    player: {
+      hp: CFG.HP_MAX,
+      progress: CFG.START_PROGRESS,
+      goal: { id: goal.id, threshold: goal.threshold, minDepth: goal.minDepth },
+      inventory: [],
+      position: 0,
+      lastRoom: 0,
+      turn: 0,
+      maxDepth: 0,
+      wanderCount: 0,
+      lanternActive: false,
+      wardActive: false
+    },
+    world: { nodes: [], edges: [], nextId: 0 }
+  };
+  const entrance = addNode({ depth: 0, kind: 'room', visited: true });
+  entrance.x = slotX(CFG.ENTRANCE_SLOT);
+  entrance.y = bandY(0);
+  createStub(entrance, 1);
+  createStub(entrance, 1);
+  return state;
+}
+
+function getNode(id) {
+  return state.world.nodes.find(function (n) { return n.id === id; }) || null;
+}
+
+function currentRoom() {
+  return getNode(state.player.position);
+}
+
+function hasItem(itemId) {
+  return state.player.inventory.indexOf(itemId) !== -1;
+}
+
+function countStubs() {
+  return allStubs().length;
+}
+
+function countUnhintedStubs() {
+  return allStubs().filter(function (s) { return !s.hinted; }).length;
+}
+
+function allStubs() {
+  return state.world.nodes.filter(function (n) { return n.kind === 'stub'; });
+}
+
+function adjacentStubs(room) {
+  return room.exits
+    .map(function (id) { return getNode(id); })
+    .filter(function (n) { return n && n.kind === 'stub'; });
+}
+
+function stripeFull(depth) {
+  let count = 0;
+  state.world.nodes.forEach(function (n) { if (n.depth === depth) count += 1; });
+  return count >= CFG.MAX_NODES_PER_DEPTH;
+}
+
+// ====================================================================
+// 4. GENERATION
+// ====================================================================
+
+function clampRow(n) {
+  return Math.max(1, Math.min(CFG.TABLE_ROWS, n));
+}
+
+function addNode(fields) {
+  const node = {
+    id: state.world.nextId,
+    depth: 0,
+    kind: 'stub',
+    locRow: null,
+    detRow: null,
+    special: false,
+    searched: false,
+    visited: false,
+    hinted: false,
+    exits: [],
+    creature: null,
+    items: [],
+    x: -1000,
+    y: -1000
+  };
+  state.world.nextId += 1;
+  Object.assign(node, fields);
+  state.world.nodes.push(node);
+  return node;
+}
+
+function addEdge(aId, bId) {
+  const a = Math.min(aId, bId);
+  const b = Math.max(aId, bId);
+  const exists = state.world.edges.some(function (e) { return e.a === a && e.b === b; });
+  if (exists) return;
+  state.world.edges.push({ a: a, b: b });
+  getNode(a).exits.push(b);
+  getNode(b).exits.push(a);
+}
+
+function createStub(parent, depth) {
+  if (stripeFull(depth)) return null;
+  const stub = addNode({ depth: depth, kind: 'stub' });
+  assignCoords(stub, parent);
+  addEdge(parent.id, stub.id);
+  return stub;
+}
+
+function openStub(stub, locRow, detRow) {
+  stub.kind = 'room';
+  stub.locRow = locRow;
+  stub.detRow = detRow;
+  stub.special = SPECIAL_ROWS.includes(locRow);
+  return stub;
+}
+
+function generateRoom(stub) {
+  const d = stub.depth;
+  const hinted = stub.hinted;
+  const locRow = clampRow(roll(20) + d);               // 1. локация
+  const detRow = clampRow(roll(20) + d);               // 2. деталь
+  const room = openStub(stub, locRow, detRow);
+  log('system', fmt(LOG_TEMPLATES.log_room_open, {
+    d: d, locRow: locRow, locName: LOCATIONS[locRow - 1].name, detRow: detRow
+  }));
+
+  const exitRoll = roll(6);                            // 3. выходы
+  const nExits = exitRoll === 1 ? 0 : (exitRoll <= 4 ? 1 : 2);
+  for (let i = 0; i < nExits; i++) {
+    let dir = (roll(10) <= 7) ? d + 1 : d;             // 70/30 вглубь/вбок
+    if (stripeFull(dir)) dir = (dir === d + 1) ? d : d + 1;
+    if (!stripeFull(dir)) createStub(room, dir);       // обе полны — пропуск
+  }
+
+  resolveEvent(room, Math.floor(d / 8) + (hinted ? 3 : 0)); // 4. событие
+  if (state.player.hp <= 0) return null;               // смерть от события:
+                                                       // шаг 5 не выполняется
+  if (countStubs() === 0) {                            // 5. гарантия фронтира
+    let dd = d + 1;
+    while (stripeFull(dd)) dd += 1;
+    createStub(room, dd);
+    log('system', LOG_TEMPLATES.log_frontier);
+  }
+  return room;
+}
+
+function resolveEvent(room, bonus) {
+  const rollValue = Math.min(roll(12) + bonus, 12);
+  const key = EVENT_BY_ROLL[rollValue - 1];
+  log('system', fmt(LOG_TEMPLATES.log_event, {
+    mod: bonus, roll: rollValue, eventName: EVENT_NAMES[key]
+  }));
+  if (rollValue <= 3) {                                          // тишина
+    log('system', fmt(LOG_TEMPLATES.log_silence, { text: UI_SILENCE[room.id % 10] }));
+    return;
+  }
+  if (rollValue === 4) {                                         // дезинформация
+    const goalLost = addProgress(-2);
+    log('progress', fmt(LOG_TEMPLATES.log_misinfo, { progress: state.player.progress }));
+    if (goalLost) log('system', LOG_TEMPLATES.log_goal_lost);
+    return;
+  }
+  if (rollValue <= 7) { spawnEncounter(room, 0); return; }       // встреча
+  if (rollValue === 8) { spawnEncounter(room, -3); return; }     // опасная
+  if (rollValue === 9) {                                         // феномен
+    const f = roll(6);
+    log('system', fmt(LOG_TEMPLATES.log_phenomenon, {
+      f: f, name: PHENOMENON_NAMES[Math.floor((f - 1) / 2)]
+    }));
+    if (f <= 2) {
+      addProgress(1);
+      logProgress(LOG_TEMPLATES.src_whisper, 1);
+      return;
+    }
+    if (f <= 4) {
+      let dir = (roll(10) <= 7) ? room.depth + 1 : room.depth;
+      if (stripeFull(dir)) dir = (dir === room.depth + 1) ? room.depth : room.depth + 1;
+      if (!stripeFull(dir)) createStub(room, dir);
+      return;
+    }
+    changeHp(-2);                                                // пыльная мгла
+    checkDeath();
+    return;
+  }
+  if (rollValue <= 11) { spawnItem(room, roll(6)); return; }     // находка
+  const gain = room.depth >= CFG.DEEP_BONUS_DEPTH_2 ? 6          // книга по теме
+    : room.depth >= CFG.DEEP_BONUS_DEPTH ? 5 : 4;
+  addProgress(gain);
+  logProgress(LOG_TEMPLATES.src_topic_book, gain);
+}
+
+function spawnEncounter(room, reactionMod) {
+  if (room.creature) return;
+  const row = Math.max(1, Math.min(roll(6) + Math.floor(room.depth / 2), 12));
+  const r = roll(6) + roll(6) + reactionMod;
+  const reaction = r <= 3 ? 'hostile' : r <= 6 ? 'wary'
+                 : r <= 9 ? 'neutral' : 'friendly';
+  room.creature = makeCreature(row, reaction);
+  const def = CREATURES[row - 1];
+  log('system', fmt(LOG_TEMPLATES.log_creature, {
+    name: def.name,
+    desc: def.desc,
+    mod: reactionMod === 0 ? '' : String(reactionMod),
+    r: r,
+    reaction: reactionName(reaction)
+  }));
+}
+
+function makeCreature(row, reaction) {
+  return { row: row, hp: CREATURES[row - 1].hp, reaction: reaction, rewardGiven: false };
+}
+
+function spawnItem(room, findRoll) {
+  const itemId = findRoll <= 2 ? 'bandage'
+    : findRoll === 3 ? 'paper_knife'
+    : findRoll === 4 ? 'catalog_card'
+    : findRoll === 5 ? 'lantern' : 'ward_bookmark';
+  room.items.push(itemId);
+  pickupItems(room);
+}
+
+function giveHint() {
+  let cand = adjacentStubs(currentRoom()).filter(function (s) { return !s.hinted; });
+  if (cand.length === 0) cand = allStubs().filter(function (s) { return !s.hinted; });
+  cand.sort(function (a, b) { return a.id - b.id; });
+  cand[rollRange(cand.length) - 1].hinted = true;      // кандидаты всегда не-hinted
+  log('progress', LOG_TEMPLATES.log_hint);
+}
+
+// ====================================================================
+// 5. GRAPH / LAYOUT
+// ====================================================================
+
+function bandY(depth) {
+  return CFG.MAP_PAD_Y + depth * CFG.BAND_H;
+}
+
+function slotX(slot) {
+  return CFG.MAP_PAD_X + slot * CFG.SLOT_W;
+}
+
+function slotOf(node) {
+  return Math.round((node.x - CFG.MAP_PAD_X) / CFG.SLOT_W);
+}
+
+function nearestFreeSlot(depth, want) {
+  const taken = [];
+  state.world.nodes.forEach(function (n) {
+    if (n.depth === depth) taken.push(slotOf(n));
+  });
+  for (let k = 0; k < CFG.SLOTS_PER_BAND; k++) {
+    const options = k === 0 ? [want] : [want + k, want - k];
+    for (let i = 0; i < options.length; i++) {
+      const s = options[i];
+      if (s < 0 || s >= CFG.SLOTS_PER_BAND) continue;
+      if (taken.indexOf(s) === -1) return s;
+    }
+  }
+  return -1;
+}
+
+function assignCoords(node, parent) {
+  const want = slotOf(parent);
+  const s = nearestFreeSlot(node.depth, want);
+  node.x = slotX(s === -1 ? want : s);
+  node.y = bandY(node.depth);
+}
+
+// ====================================================================
+// 6. RENDER
+// ====================================================================
+
+function fmt(template, params) {
+  return template.replace(/\{(\w+)\}/g, function (m, key) {
+    return Object.prototype.hasOwnProperty.call(params, key) ? String(params[key]) : m;
+  });
+}
+
+function fmtParts(template, params) {
+  const parts = [];
+  const re = /\{(\w+)\}/g;
+  let last = 0;
+  let m = re.exec(template);
+  while (m !== null) {
+    if (m.index > last) parts.push({ text: template.slice(last, m.index), value: false });
+    parts.push({ text: String(params[m[1]]), value: true });
+    last = m.index + m[0].length;
+    m = re.exec(template);
+  }
+  if (last < template.length) parts.push({ text: template.slice(last), value: false });
+  return parts;
+}
+
+function log(type, text) {
+  const list = document.getElementById('log-list');
+  const entry = document.createElement('div');
+  entry.className = 'log-entry log-' + type;
+  const turnEl = document.createElement('span');
+  turnEl.className = 'log-turn';
+  turnEl.textContent = String(state.player.turn);
+  const textEl = document.createElement('span');
+  textEl.className = 'log-text';
+  textEl.textContent = text;
+  entry.appendChild(turnEl);
+  entry.appendChild(textEl);
+  list.appendChild(entry);
+  while (list.children.length > CFG.LOG_MAX) list.removeChild(list.firstChild);
+  const box = document.getElementById('log');
+  box.scrollTop = box.scrollHeight;
+}
+
+function logProgress(source, n) {
+  log('progress', fmt(LOG_TEMPLATES.log_progress, {
+    source: source, n: n, progress: state.player.progress
+  }));
+}
+
+function roomName(node) {
+  return node.locRow === null ? UI.map_entrance_label : LOCATIONS[node.locRow - 1].name;
+}
+
+function roomDesc(node) {
+  return node.locRow === null ? UI.room_entrance_desc : LOCATIONS[node.locRow - 1].desc;
+}
+
+function nodeTag(node) {
+  if (node.id === 0) return 'entrance';
+  return node.locRow === null ? null : LOCATIONS[node.locRow - 1].tag;
+}
+
+function reactionName(reaction) {
+  return UI['reaction_' + reaction];
+}
+
+function render() {
+  renderMap();
+  renderPanel();
+  const wrap = document.getElementById('map-wrap');
+  const cur = currentRoom();
+  wrap.scrollTop = cur.y - wrap.clientHeight / 2;
+}
+
+function renderMap() {
+  const svg = document.getElementById('map');
+  const bands = document.getElementById('bands');
+  const edges = document.getElementById('edges');
+  const nodesG = document.getElementById('nodes');
+  const prevIds = new Set();
+  nodesG.querySelectorAll('g[data-id]').forEach(function (g) {
+    prevIds.add(g.getAttribute('data-id'));
+  });
+  let maxBand = 0;
+  state.world.nodes.forEach(function (n) { if (n.depth > maxBand) maxBand = n.depth; });
+  const h = (maxBand + 1) * CFG.BAND_H;
+  svg.setAttribute('width', String(CFG.SVG_W));
+  svg.setAttribute('height', String(h));
+  svg.setAttribute('viewBox', '0 0 ' + CFG.SVG_W + ' ' + h);
+  bands.replaceChildren();
+  edges.replaceChildren();
+  nodesG.replaceChildren();
+  for (let d = 0; d <= maxBand; d++) {
+    renderBand(bands, d);
+  }
+  state.world.edges.forEach(function (e) { edges.appendChild(edgeSvg(e)); });
+  state.world.nodes.forEach(function (n) {
+    const g = nodeSvg(n);
+    if (!prevIds.has(String(n.id))) g.classList.add('is-new');
+    nodesG.appendChild(g);
+  });
+  const fresh = nodesG.querySelectorAll('g.is-new');
+  if (fresh.length > 0) {
+    setTimeout(function () {
+      fresh.forEach(function (g) { g.classList.remove('is-new'); });
+    }, 20);
+  }
+  const cur = currentRoom();
+  const marker = document.getElementById('player-marker');
+  marker.style.transform = 'translate(' + cur.x + 'px, ' + cur.y + 'px)';
+}
+
+function renderBand(bands, d) {
+  const rect = document.createElementNS(SVG_NS, 'rect');
+  rect.setAttribute('x', '0');
+  rect.setAttribute('y', String(d * CFG.BAND_H));
+  rect.setAttribute('width', String(CFG.SVG_W));
+  rect.setAttribute('height', String(CFG.BAND_H));
+  rect.setAttribute('class', d % 2 === 0 ? 'band-a' : 'band-b');
+  bands.appendChild(rect);
+  const label = document.createElementNS(SVG_NS, 'text');
+  label.setAttribute('x', '12');
+  label.setAttribute('y', String(d * CFG.BAND_H + 16));
+  label.setAttribute('class', 'band-label');
+  label.textContent = fmt(UI.map_depth_label, { n: d }).toUpperCase();
+  bands.appendChild(label);
+}
+
+function nodeSvg(node) {
+  const g = document.createElementNS(SVG_NS, 'g');
+  g.setAttribute('data-id', String(node.id));
+  g.setAttribute('transform', 'translate(' + node.x + ',' + node.y + ')');
+  const clickable = isNodeClickable(node);
+  if (clickable) g.classList.add('clickable');
+  const inner = document.createElementNS(SVG_NS, 'g');
+  inner.setAttribute('class', 'node-inner');
+  g.appendChild(inner);
+  const hit = document.createElementNS(SVG_NS, 'circle');
+  hit.setAttribute('r', String(CFG.HIT_R));
+  hit.setAttribute('class', 'hit-circle');
+  inner.appendChild(hit);
+  if (node.kind === 'stub') {
+    nodeStubShape(inner, node);
+  } else {
+    nodeRoomShape(inner, node);
+  }
+  if (clickable) {
+    const ring = document.createElementNS(SVG_NS, 'circle');
+    ring.setAttribute('r', '20');
+    ring.setAttribute('class', 'hover-ring');
+    inner.appendChild(ring);
+  }
+  return g;
+}
+
+function nodeStubShape(inner, node) {
+  const c = document.createElementNS(SVG_NS, 'circle');
+  c.setAttribute('r', String(CFG.STUB_R));
+  c.setAttribute('class', node.hinted ? 'stub-circle hinted' : 'stub-circle');
+  inner.appendChild(c);
+  const q = document.createElementNS(SVG_NS, 'text');
+  q.setAttribute('class', node.hinted ? 'stub-mark hinted' : 'stub-mark');
+  q.setAttribute('text-anchor', 'middle');
+  q.setAttribute('dominant-baseline', 'central');
+  q.textContent = '?';
+  inner.appendChild(q);
+}
+
+function nodeRoomShape(inner, node) {
+  const isCurrent = node.id === state.player.position;
+  const circle = document.createElementNS(SVG_NS, 'circle');
+  circle.setAttribute('r', String(CFG.NODE_R));
+  circle.setAttribute('class', 'node-circle tag-' + nodeTag(node));
+  circle.setAttribute('fill-opacity', isCurrent ? '1' : '0.55');
+  inner.appendChild(circle);
+  const letter = document.createElementNS(SVG_NS, 'text');
+  letter.setAttribute('class', 'node-letter');
+  letter.setAttribute('text-anchor', 'middle');
+  letter.setAttribute('dominant-baseline', 'central');
+  letter.textContent = TAG_LETTERS[nodeTag(node)];
+  inner.appendChild(letter);
+  const label = document.createElementNS(SVG_NS, 'text');
+  label.setAttribute('class', isCurrent ? 'node-label current' : 'node-label');
+  label.setAttribute('text-anchor', 'middle');
+  label.setAttribute('y', '30');
+  let name = roomName(node);
+  if (name.length > 14) name = name.slice(0, 14) + '…';
+  label.textContent = name;
+  inner.appendChild(label);
+}
+
+function edgeSvg(edge) {
+  const a = getNode(edge.a);
+  const b = getNode(edge.b);
+  const path = document.createElementNS(SVG_NS, 'path');
+  let dAttr;
+  if (a.depth === b.depth) {
+    dAttr = 'M ' + a.x + ' ' + a.y +
+      ' Q ' + ((a.x + b.x) / 2) + ' ' + (a.y + 40) + ', ' + b.x + ' ' + b.y;
+  } else {
+    const top = a.y <= b.y ? a : b;
+    const bot = a.y <= b.y ? b : a;
+    dAttr = 'M ' + top.x + ' ' + top.y +
+      ' C ' + top.x + ' ' + (top.y + 60) + ', ' +
+      bot.x + ' ' + (bot.y - 60) + ', ' + bot.x + ' ' + bot.y;
+  }
+  path.setAttribute('d', dAttr);
+  const toStub = a.kind === 'stub' || b.kind === 'stub';
+  path.setAttribute('class', toStub ? 'edge edge-stub' : 'edge');
+  return path;
+}
+
+function renderPanel() {
+  renderStatus();
+  renderRoom();
+  renderInventory();
+  renderActions();
+}
+
+function statusLine(parent, template, params, extraClass) {
+  const row = document.createElement('div');
+  row.className = extraClass ? 'status-row ' + extraClass : 'status-row';
+  const parts = fmtParts(template, params);
+  let inParen = false;
+  parts.forEach(function (p) {
+    if (!p.value && p.text.indexOf('(') !== -1) inParen = true;
+    const span = document.createElement('span');
+    if (p.value) span.className = 'val';
+    if (extraClass === 'depth-row' && inParen && params.depthMet) {
+      span.classList.add('success-text');
+    }
+    span.textContent = p.text;
+    row.appendChild(span);
+  });
+  parent.appendChild(row);
+  return row;
+}
+
+function statusBar(parent, ratio, fillClass) {
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  const fill = document.createElement('div');
+  fill.className = 'bar-fill ' + fillClass;
+  fill.style.width = (Math.min(ratio, 1) * 100) + '%';
+  bar.appendChild(fill);
+  parent.appendChild(bar);
+}
+
+function renderStatus() {
+  const box = document.getElementById('status');
+  box.replaceChildren();
+  const p = state.player;
+  const goal = GOALS.find(function (g) { return g.id === p.goal.id; });
+  statusLine(box, UI.status_hp, { hp: p.hp, hpMax: CFG.HP_MAX });
+  statusBar(box, p.hp / CFG.HP_MAX, 'hp');
+  const depthMet = p.maxDepth >= p.goal.minDepth;
+  statusLine(box, UI.status_depth, {
+    depth: currentRoom().depth, maxDepth: p.maxDepth,
+    minDepth: p.goal.minDepth, depthMet: depthMet
+  }, 'depth-row');
+  statusLine(box, UI.status_progress, { progress: p.progress, threshold: p.goal.threshold });
+  statusBar(box, p.progress / p.goal.threshold, 'prog');
+  if (p.progress >= p.goal.threshold && depthMet) {
+    const ready = document.createElement('div');
+    ready.className = 'goal-ready';
+    ready.textContent = UI.status_goal_ready;
+    box.appendChild(ready);
+  }
+  statusLine(box, UI.status_turn, { turn: p.turn });
+  const goalRow = document.createElement('div');
+  goalRow.className = 'status-goal';
+  goalRow.textContent = fmt(UI.status_goal, { goalName: goal.name });
+  box.appendChild(goalRow);
+  const seedRow = document.createElement('div');
+  seedRow.className = 'status-seed';
+  seedRow.textContent = fmt(UI.status_seed, { seed: state.rng.seed });
+  box.appendChild(seedRow);
+}
+
+function renderRoom() {
+  const box = document.getElementById('room-panel');
+  box.replaceChildren();
+  const room = currentRoom();
+  const head = document.createElement('div');
+  head.className = 'section-label';
+  head.textContent = UI.room_header;
+  box.appendChild(head);
+  const name = document.createElement('div');
+  name.className = 'room-name';
+  name.textContent = roomName(room);
+  box.appendChild(name);
+  const desc = document.createElement('div');
+  desc.className = 'room-desc';
+  desc.textContent = roomDesc(room);
+  box.appendChild(desc);
+  if (room.locRow === null) {
+    const goal = GOALS.find(function (g) { return g.id === state.player.goal.id; });
+    const q = document.createElement('div');
+    q.className = 'room-goal-q';
+    q.textContent = goal.question;
+    box.appendChild(q);
+  } else {
+    const detail = document.createElement('div');
+    detail.className = 'room-detail';
+    detail.textContent = UI.room_detail_prefix + ' ' + DETAILS[room.detRow - 1].text;
+    box.appendChild(detail);
+  }
+  if (room.creature) renderCreatureLine(box, room.creature);
+}
+
+function renderCreatureLine(box, creature) {
+  const def = CREATURES[creature.row - 1];
+  let text = fmt(UI.room_creature_line, {
+    name: def.name, hp: creature.hp, reaction: reactionName(creature.reaction)
+  });
+  if (!def.mute && creature.reaction !== 'hostile') {
+    text += fmt(UI.room_creature_talk_suffix, { n: CFG.TALK_DC - talkMod(creature.reaction) });
+  }
+  const line = document.createElement('div');
+  line.className = creature.reaction === 'hostile' ? 'creature-line hostile' : 'creature-line';
+  line.textContent = text;
+  box.appendChild(line);
+}
+
+function renderInventory() {
+  const box = document.getElementById('inventory');
+  box.replaceChildren();
+  const inv = state.player.inventory;
+  const head = document.createElement('div');
+  head.className = 'section-label';
+  head.textContent = fmt(UI.inventory_header, { n: inv.length });
+  box.appendChild(head);
+  for (let i = 0; i < CFG.INVENTORY_MAX; i++) {
+    box.appendChild(inventorySlot(inv[i], i));
+  }
+  if (state.player.lanternActive) flagLine(box, UI.inventory_lantern_ready);
+  if (state.player.wardActive) flagLine(box, UI.inventory_ward_ready);
+}
+
+function inventorySlot(itemId, slotIndex) {
+  const slot = document.createElement('div');
+  slot.className = 'inv-slot';
+  if (!itemId) {
+    slot.classList.add('inv-empty');
+    slot.textContent = UI.inventory_empty_slot;
+    return slot;
+  }
+  const def = ITEM_BY_ID[itemId];
+  const waiting = (itemId === 'lantern' && state.player.lanternActive) ||
+                  (itemId === 'ward_bookmark' && state.player.wardActive);
+  if (def.kind === 'passive') {
+    slot.classList.add('inv-passive');
+    slot.textContent = def.name + ' ' + UI.inventory_passive_suffix;
+  } else if (waiting) {
+    slot.classList.add('inv-waiting');
+    slot.textContent = def.name + ' ' + UI.inventory_waiting_suffix;
+  } else {
+    const btn = document.createElement('button');
+    btn.className = 'inv-use';
+    btn.textContent = def.name;
+    btn.addEventListener('click', function () { useItem(slotIndex); });
+    slot.appendChild(btn);
+  }
+  return slot;
+}
+
+function flagLine(box, text) {
+  const line = document.createElement('div');
+  line.className = 'flag-line';
+  line.textContent = text;
+  box.appendChild(line);
+}
+
+function addActionButton(box, label, handler, danger) {
+  const btn = document.createElement('button');
+  btn.className = danger ? 'action-btn btn-danger' : 'action-btn';
+  btn.textContent = label;
+  btn.addEventListener('click', handler);
+  box.appendChild(btn);
+}
+
+function renderActions() {
+  const box = document.getElementById('actions');
+  box.replaceChildren();
+  const room = currentRoom();
+  const c = room.creature;
+  const reaction = c ? c.reaction : null;
+  const def = c ? CREATURES[c.row - 1] : null;
+  if (!room.searched && (!c || reaction === 'friendly' || reaction === 'neutral')) {
+    addActionButton(box, UI.action_look, searchAction, false);
+  }
+  if (!c && state.player.hp < CFG.HP_MAX && room.depth > 0) {
+    addActionButton(box, UI.action_rest, restAction, false);
+  }
+  if (c && reaction !== 'hostile' && !def.mute) {
+    addActionButton(box, UI.action_talk, talkAction, false);
+  }
+  if (c) {
+    addActionButton(box, UI.action_fight, fightAction, false);
+  }
+  if (c && reaction === 'hostile') {
+    addActionButton(box, UI.action_flee, fleeAction, false);
+  }
+  addActionButton(box, UI.action_surrender, surrenderAsk, true);
+}
+
+// ====================================================================
+// 7. INPUT / ACTIONS
+// ====================================================================
+
+function talkMod(reaction) {
+  if (reaction === 'friendly') return 4;
+  if (reaction === 'wary') return -2;
+  return 0;
+}
+
+function isNodeClickable(node) {
+  const cur = currentRoom();
+  if (node.id === cur.id) return false;
+  if (cur.exits.indexOf(node.id) === -1) return false;
+  const c = cur.creature;
+  if (c && c.reaction === 'hostile') return false;
+  if (c && c.reaction === 'wary' && node.kind === 'stub') return false;
+  return true;
+}
+
+function onNodeClick(id) {
+  if (!state) return;
+  const node = getNode(id);
+  if (!node || !isNodeClickable(node)) return;
+  if (node.kind === 'stub') {
+    const room = generateRoom(node);
+    if (!room) return;              // смерть от события при генерации
+    moveTo(room.id);
+    endTurn(false);
+    return;
+  }
+  moveTo(node.id);
+  log('system', fmt(LOG_TEMPLATES.log_move, {
+    flavor: UI_TRANSITIONS[(node.id + state.player.turn) % 10],
+    roomName: roomName(node)
+  }));
+  endTurn(false);
+}
+
+function moveTo(roomId) {
+  const from = currentRoom();
+  const room = getNode(roomId);
+  if (room.visited && room.depth >= from.depth) {
+    state.player.wanderCount += 1;
+    if (state.player.wanderCount >= CFG.WANDER_LIMIT) {
+      const goalLost = addProgress(-1);
+      log('progress', fmt(LOG_TEMPLATES.log_wander, { progress: state.player.progress }));
+      if (goalLost) log('system', LOG_TEMPLATES.log_goal_lost);
+      state.player.wanderCount = 0;
+    }
+  }
+  if (!room.visited) state.player.wanderCount = 0;
+  state.player.lastRoom = from.id;
+  state.player.position = room.id;
+  room.visited = true;
+  state.player.maxDepth = Math.max(state.player.maxDepth, room.depth);
+  pickupItems(room);
+}
+
+function searchAction() {
+  const room = currentRoom();
+  if (room.special) {
+    const gain = room.depth >= CFG.DEEP_BONUS_DEPTH_2 ? 5
+      : room.depth >= CFG.DEEP_BONUS_DEPTH ? 4 : 3;
+    addProgress(gain);
+    logProgress(LOG_TEMPLATES.src_search_special, gain);
+    const r = roll(20);
+    log('system', fmt(LOG_TEMPLATES.log_search, { r: r, outcome: LOG_TEMPLATES.outcome_special }));
+    if (r >= 15) spawnItem(room, roll(6));
+  } else {
+    const r = roll(20);
+    let outcome = LOG_TEMPLATES.outcome_nothing;
+    if (r >= 15) outcome = LOG_TEMPLATES.outcome_find;
+    else if (r >= 9) outcome = LOG_TEMPLATES.outcome_progress;
+    log('system', fmt(LOG_TEMPLATES.log_search, { r: r, outcome: outcome }));
+    if (r >= 15) {
+      spawnItem(room, roll(6));
+    } else if (r >= 9) {
+      const gain = room.depth >= CFG.DEEP_BONUS_DEPTH ? 2 : 1;
+      addProgress(gain);
+      logProgress(LOG_TEMPLATES.src_search, gain);
+    }
+  }
+  room.searched = true;
+  endTurn(true);
+}
+
+function restAction() {
+  const healed = Math.min(CFG.REST_HEAL, CFG.HP_MAX - state.player.hp);
+  changeHp(CFG.REST_HEAL);
+  log('system', fmt(LOG_TEMPLATES.log_rest, {
+    n: healed, hp: state.player.hp, hpMax: CFG.HP_MAX
+  }));
+  endTurn(true, true);
+}
+
+function talkAction() {
+  const c = currentRoom().creature;
+  const def = CREATURES[c.row - 1];
+  const mod = talkMod(c.reaction);
+  const r = roll(20) + mod;
+  const success = r >= CFG.TALK_DC;
+  log('system', fmt(LOG_TEMPLATES.log_talk, {
+    mod: mod === 0 ? '' : (mod > 0 ? '+' + mod : String(mod)),
+    r: r,
+    dc: CFG.TALK_DC,
+    outcome: success ? LOG_TEMPLATES.outcome_talk_success : LOG_TEMPLATES.outcome_talk_fail
+  }));
+  if (success) {
+    if (!c.rewardGiven) {
+      if (def.knowing) {
+        addProgress(3);
+        logProgress(LOG_TEMPLATES.src_talk, 3);
+      } else if (countUnhintedStubs() > 0) {
+        giveHint();
+      } else {
+        addProgress(1);
+        logProgress(LOG_TEMPLATES.src_talk, 1);
+      }
+      c.rewardGiven = true;
+    }
+    c.reaction = improveReaction(c.reaction);
+  } else {
+    c.reaction = worsenReaction(c.reaction);
+  }
+  endTurn(false);
+}
+
+function fightAction() {
+  const room = currentRoom();
+  const c = room.creature;
+  const def = CREATURES[c.row - 1];
+  const knife = hasItem('paper_knife');
+  const dmg = roll(6) + (knife ? 2 : 0);
+  c.hp -= dmg;
+  log('combat', fmt(LOG_TEMPLATES.log_player_hit, {
+    name: def.name, mod: knife ? '+2' : '', n: dmg, chp: Math.max(0, c.hp)
+  }));
+  if (c.hp <= 0) {
+    const loot = roll(6);
+    const outcome = loot === 6 ? LOG_TEMPLATES.outcome_loot_item_progress
+      : loot >= 4 ? LOG_TEMPLATES.outcome_loot_item : LOG_TEMPLATES.outcome_loot_nothing;
+    log('combat', fmt(LOG_TEMPLATES.log_loot, { name: def.name, r: loot, outcome: outcome }));
+    if (loot >= 4) spawnItem(room, roll(6));
+    if (loot === 6) {
+      addProgress(1);
+      logProgress(LOG_TEMPLATES.src_loot, 1);
+    }
+    room.creature = null;
+  } else if (c.reaction !== 'hostile') {
+    c.reaction = 'hostile';
+    log('system', fmt(LOG_TEMPLATES.log_hostile_turn, { name: def.name }));
+  } else {
+    dealToPlayer(def.dmg);
+  }
+  endTurn(false);
+}
+
+function fleeAction() {
+  const room = currentRoom();
+  const c = room.creature;
+  const def = CREATURES[c.row - 1];
+  const auto = consumeLanternIfActive();
+  let success = auto;
+  if (auto) {
+    log('combat', LOG_TEMPLATES.log_flee_lantern);
+  } else {
+    const r = roll(20);
+    success = r >= CFG.FLEE_DC;
+    log('combat', fmt(LOG_TEMPLATES.log_flee, {
+      r: r, dc: CFG.FLEE_DC,
+      outcome: success ? LOG_TEMPLATES.outcome_flee_success : LOG_TEMPLATES.outcome_flee_fail
+    }));
+  }
+  if (success) {
+    let target = getNode(state.player.lastRoom);
+    if (target.creature && target.creature.reaction === 'hostile') {
+      const alt = room.exits
+        .map(function (id) { return getNode(id); })
+        .filter(function (n) { return n.kind === 'room' && !n.creature; })
+        .sort(function (x, y) { return x.id - y.id; });
+      if (alt.length > 0) target = alt[0];
+    }
+    moveTo(target.id);
+  } else {
+    dealToPlayer(def.dmg);
+  }
+  endTurn(false);
+}
+
+function useItem(slotIndex) {
+  const itemId = state.player.inventory[slotIndex];
+  if (!itemId) return;
+  const def = ITEM_BY_ID[itemId];
+  if (def.kind === 'passive') return;
+  if (itemId === 'bandage') {
+    if (state.player.hp >= CFG.HP_MAX) return;
+    state.player.inventory.splice(slotIndex, 1);
+    changeHp(4);
+    log('find', fmt(LOG_TEMPLATES.log_use, { itemName: def.name }));
+  } else if (itemId === 'catalog_card') {
+    state.player.inventory.splice(slotIndex, 1);
+    log('find', fmt(LOG_TEMPLATES.log_use, { itemName: def.name }));
+    addProgress(2);
+    logProgress(def.name, 2);
+  } else if (itemId === 'lantern') {
+    if (state.player.lanternActive) return;
+    state.player.inventory.splice(slotIndex, 1);
+    state.player.lanternActive = true;
+    log('find', fmt(LOG_TEMPLATES.log_use, { itemName: def.name }));
+  } else if (itemId === 'ward_bookmark') {
+    if (state.player.wardActive) return;
+    state.player.inventory.splice(slotIndex, 1);
+    state.player.wardActive = true;
+    log('find', fmt(LOG_TEMPLATES.log_use, { itemName: def.name }));
+  }
+  pickupItems(currentRoom());
+  if (checkDeath()) return;
+  if (checkWin()) { showEnd('win'); return; }
+  saveGame();
+  render();
+}
+
+function pickupItems(room) {
+  if (room.id !== state.player.position) return;
+  while (room.items.length > 0 && state.player.inventory.length < CFG.INVENTORY_MAX) {
+    const itemId = room.items.shift();
+    state.player.inventory.push(itemId);
+    const def = ITEM_BY_ID[itemId];
+    log('find', fmt(LOG_TEMPLATES.log_find, { itemName: def.name, itemText: def.text }));
+  }
+  if (room.items.length > 0) log('find', LOG_TEMPLATES.log_inventory_full);
+}
+
+function surrenderAsk() {
+  const box = document.getElementById('actions');
+  box.replaceChildren();
+  const msg = document.createElement('div');
+  msg.className = 'surrender-prompt';
+  msg.textContent = UI.surrender_prompt;
+  box.appendChild(msg);
+  const yes = document.createElement('button');
+  yes.className = 'action-btn btn-danger';
+  yes.textContent = UI.surrender_confirm;
+  yes.addEventListener('click', surrenderConfirm);
+  box.appendChild(yes);
+  const no = document.createElement('button');
+  no.className = 'action-btn';
+  no.textContent = UI.surrender_cancel;
+  no.addEventListener('click', surrenderCancel);
+  box.appendChild(no);
+}
+
+function surrenderConfirm() {
+  resetSave();
+  showScreen('start');
+}
+
+function surrenderCancel() {
+  renderActions();
+}
+
+// Возвращает true, если выполненное условие победы (progress >= порога при
+// достигнутой глубине) потеряно этим изменением — вызывающий пишет
+// предупреждение log_goal_lost после своей записи о причине.
+function addProgress(n) {
+  const wasReady = state.player.progress >= state.player.goal.threshold
+                && state.player.maxDepth >= state.player.goal.minDepth;
+  state.player.progress = Math.max(0, state.player.progress + n);
+  if (n > 0) state.player.wanderCount = 0;
+  return wasReady && state.player.progress < state.player.goal.threshold;
+}
+
+function changeHp(delta) {
+  state.player.hp = Math.max(0, Math.min(CFG.HP_MAX, state.player.hp + delta));
+}
+
+function dealToPlayer(dmg) {
+  const c = currentRoom().creature;
+  const def = CREATURES[c.row - 1];
+  if (state.player.wardActive) {
+    state.player.wardActive = false;
+    log('combat', LOG_TEMPLATES.log_ward_block);
+    return;
+  }
+  changeHp(-dmg);
+  log('combat', fmt(LOG_TEMPLATES.log_creature_hit, {
+    name: def.name, dmg: dmg, hp: state.player.hp, hpMax: CFG.HP_MAX
+  }));
+}
+
+function improveReaction(reaction) {
+  if (reaction === 'wary') return 'neutral';
+  if (reaction === 'neutral') return 'friendly';
+  return reaction;
+}
+
+function worsenReaction(reaction) {
+  if (reaction === 'friendly') return 'neutral';
+  if (reaction === 'neutral') return 'wary';
+  return 'hostile';
+}
+
+function consumeLanternIfActive() {
+  if (state.player.lanternActive) {
+    state.player.lanternActive = false;
+    return true;
+  }
+  return false;
+}
+
+function checkDeath() {
+  if (state.player.hp <= 0) {
+    showEnd('lose');
+    return true;
+  }
+  return false;
+}
+
+function checkWin() {
+  return state.player.progress >= state.player.goal.threshold
+      && state.player.maxDepth >= state.player.goal.minDepth
+      && state.player.position === 0
+      && state.player.hp > 0;
+}
+
+function endTurn(extraCheck, noisy) {
+  state.player.turn += 1;
+  if (state.player.hp <= 0) { showEnd('lose'); return; }
+  if (checkWin()) { showEnd('win'); return; }
+  const due = state.player.turn % CFG.ENCOUNTER_PERIOD === 0 || extraCheck;
+  const room = currentRoom();
+  if (due && room.depth > 0 && !room.creature) {
+    const chance = noisy ? Math.min(3 + Math.floor(room.depth / 4), 7)
+                         : Math.min(1 + Math.floor(room.depth / 4), 5);
+    const r = roll(20);
+    const someone = r <= chance;
+    log('system', fmt(LOG_TEMPLATES.log_wander_check, {
+      r: r, p: chance,
+      outcome: someone ? LOG_TEMPLATES.outcome_wander_someone : LOG_TEMPLATES.outcome_wander_nothing
+    }));
+    if (someone) spawnEncounter(room, 0);
+  }
+  saveGame();
+  render();
+}
+
+// ====================================================================
+// 8. SAVE / LOAD
+// ====================================================================
+
+function saveGame() {
+  try {
+    localStorage.setItem(CFG.SAVE_KEY, JSON.stringify(state));
+  } catch (err) {
+    log('system', LOG_TEMPLATES.log_save_error);
+  }
+}
+
+function loadGame() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(CFG.SAVE_KEY);
+  } catch (err) {
+    return false;
+  }
+  if (!raw) return false;
+  let parsed = null;
+  try {
+    parsed = JSON.parse(raw);
+  } catch (err) {
+    return false;
+  }
+  if (!parsed || !parsed.meta || parsed.meta.version !== CFG.SAVE_VERSION) return false;
+  state = parsed;
+  return true;
+}
+
+function resetSave() {
+  try {
+    localStorage.removeItem(CFG.SAVE_KEY);
+  } catch (err) {
+    // хранилище недоступно — сейва и так нет
+  }
+}
+
+// ====================================================================
+// 9. SCREENS
+// ====================================================================
+
+function showScreen(name) {
+  ['start', 'game', 'win', 'lose'].forEach(function (s) {
+    document.getElementById('screen-' + s).classList.toggle('hidden', s !== name);
+  });
+}
+
+function parseSeed(text) {
+  const cleaned = String(text || '').trim().slice(0, 32);
+  if (cleaned === '') return 1 + (Date.now() % 999999);
+  if (/^\d+$/.test(cleaned)) return parseInt(cleaned, 10) >>> 0;
+  let h = 2166136261;
+  for (let i = 0; i < cleaned.length; i++) {
+    h = (Math.imul(h, 31) + cleaned.charCodeAt(i)) >>> 0;
+  }
+  return h;
+}
+
+function startNewGame(seedText, presetId) {
+  resetSave();
+  const seed = parseSeed(seedText);
+  newState(seed, presetId);
+  saveGame();
+  document.getElementById('log-list').replaceChildren();
+  showScreen('game');
+  const goal = GOALS.find(function (g) { return g.id === state.player.goal.id; });
+  log('system', fmt(LOG_TEMPLATES.log_start, {
+    seed: state.rng.seed, goalName: goal.name,
+    threshold: goal.threshold, minDepth: goal.minDepth
+  }));
+  render();
+}
+
+function statRow(parent, label, value) {
+  const row = document.createElement('div');
+  row.className = 'stat-row';
+  const labelEl = document.createElement('span');
+  labelEl.className = 'stat-label';
+  labelEl.textContent = label;
+  const valueEl = document.createElement('span');
+  valueEl.className = 'stat-value';
+  valueEl.textContent = value;
+  row.appendChild(labelEl);
+  row.appendChild(valueEl);
+  parent.appendChild(row);
+}
+
+function showEnd(result) {
+  const prefix = result === 'win' ? 'win' : 'lose';
+  const statsBox = document.getElementById(prefix + '-stats');
+  statsBox.replaceChildren();
+  statRow(statsBox, UI.result_turns, String(state.player.turn));
+  statRow(statsBox, UI.result_max_depth, String(state.player.maxDepth));
+  statRow(statsBox, UI.result_progress,
+    state.player.progress + ' / ' + state.player.goal.threshold);
+  statRow(statsBox, UI.result_seed, String(state.rng.seed));
+  resetSave();
+  showScreen(prefix);
+}
+
+// ====================================================================
+// 10. INIT
+// ====================================================================
+
+function setText(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+function applyStaticTexts() {
+  setText('start-title', UI.app_title);
+  setText('start-subtitle', UI.start_subtitle);
+  setText('start-question-header', UI.start_question_header);
+  setText('seed-label', UI.start_seed_label);
+  document.getElementById('seed-input').setAttribute('placeholder', UI.start_seed_placeholder);
+  setText('btn-start', UI.start_enter_button);
+  setText('topbar-title', UI.app_title);
+  setText('btn-new-game', UI.topbar_new_game);
+  setText('btn-reset-save', UI.topbar_reset_save);
+  setText('log-title', UI.log_header);
+  setText('win-title', UI.win_title);
+  setText('win-text', UI.win_text);
+  setText('btn-win-restart', UI.new_game_button);
+  setText('lose-title', UI.lose_title);
+  setText('lose-text', UI.lose_text);
+  setText('btn-lose-restart', UI.new_game_button);
+}
+
+function updatePresetSelection() {
+  document.querySelectorAll('#preset-list .preset-card').forEach(function (card) {
+    const radio = card.querySelector('input');
+    card.classList.toggle('selected', radio.checked);
+  });
+}
+
+function buildPresetCards() {
+  const list = document.getElementById('preset-list');
+  GOALS.forEach(function (goal, idx) {
+    const card = document.createElement('label');
+    card.className = idx === 0 ? 'preset-card selected' : 'preset-card';
+    const radio = document.createElement('input');
+    radio.type = 'radio';
+    radio.name = 'preset';
+    radio.value = goal.id;
+    radio.checked = idx === 0;
+    radio.addEventListener('change', updatePresetSelection);
+    card.appendChild(radio);
+    const name = document.createElement('div');
+    name.className = 'preset-name';
+    name.textContent = goal.name;
+    card.appendChild(name);
+    const question = document.createElement('div');
+    question.className = 'preset-question';
+    question.textContent = goal.question;
+    card.appendChild(question);
+    const desc = document.createElement('div');
+    desc.className = 'preset-desc';
+    desc.textContent = goal.desc;
+    card.appendChild(desc);
+    list.appendChild(card);
+  });
+}
+
+function init() {
+  applyStaticTexts();
+  buildPresetCards();
+  document.getElementById('btn-start').addEventListener('click', function () {
+    const chosen = document.querySelector('input[name="preset"]:checked');
+    startNewGame(document.getElementById('seed-input').value, chosen ? chosen.value : 'easy');
+  });
+  document.getElementById('seed-input').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') document.getElementById('btn-start').click();
+  });
+  document.getElementById('btn-new-game').addEventListener('click', function () {
+    showScreen('start');
+  });
+  document.getElementById('btn-reset-save').addEventListener('click', function () {
+    resetSave();
+    showScreen('start');
+  });
+  document.getElementById('btn-win-restart').addEventListener('click', function () {
+    showScreen('start');
+  });
+  document.getElementById('btn-lose-restart').addEventListener('click', function () {
+    showScreen('start');
+  });
+  document.getElementById('nodes').addEventListener('click', function (e) {
+    const g = e.target.closest('g[data-id]');
+    if (g) onNodeClick(parseInt(g.getAttribute('data-id'), 10));
+  });
+  window.DBG = {
+    addProgress: function (n) { state.player.progress = Math.max(0, state.player.progress + n); render(); },
+    hurt:        function (n) { state.player.hp -= n; if (state.player.hp <= 0) { showEnd('lose'); } else { render(); } },
+    teleport:    function (id) { var nd = getNode(id); if (nd && nd.kind === 'room') { state.player.position = id; render(); } },
+    reveal:      function () { state.world.nodes.forEach(function (n) { n.visited = true; }); render(); },
+    god:         function () { state.player.hp = 999; render(); }
+  };
+  if (loadGame()) {
+    showScreen('game');
+    document.getElementById('log-list').replaceChildren();
+    log('system', LOG_TEMPLATES.log_loaded);
+    render();
+  } else {
+    showScreen('start');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
