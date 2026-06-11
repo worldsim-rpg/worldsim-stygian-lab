@@ -39,6 +39,15 @@ OSR-приключение Эммы Аллен (2018): бесконечная м
 worldsim-stygian-lab/
 ├── README.md
 ├── docs/
-│   └── stygian-algorithm.md   ← разбор алгоритма генерации
-└── experiments/               ← прототипы (появятся позже)
+│   └── stygian-algorithm.md       ← разбор алгоритма генерации
+└── experiments/
+    └── 01-depthcrawl-canvas/      ← играбельный 2D-прототип (vanilla JS + Canvas)
+        ├── index.html             ← вся игра, один файл, без зависимостей
+        └── README.md              ← управление, дизайн-решения, маппинг на алгоритм
 ```
+
+## Прототип: как поиграть
+
+Открыть `experiments/01-depthcrawl-canvas/index.html` в браузере
+(двойным кликом или через `python -m http.server`). WASD/стрелки —
+движение, двери генерируют новые комнаты броском d20 + глубина.

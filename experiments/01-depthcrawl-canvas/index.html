@@ -1,0 +1,578 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Стигийская библиотека — прототип depth crawl</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;background:#0b0b10;color:#cfc8e8;font:14px/1.45 "Segoe UI",system-ui,sans-serif;display:flex;justify-content:center}
+  #wrap{display:flex;gap:14px;padding:14px;align-items:flex-start;flex-wrap:wrap}
+  #gamecol{position:relative}
+  canvas#game{background:#0e0e14;border:1px solid #2a2740;border-radius:6px;display:block}
+  #banner{position:absolute;top:14px;left:50%;transform:translateX(-50%);max-width:82%;background:rgba(10,8,18,.88);border:1px solid #3a3358;color:#d8c89a;padding:8px 16px;border-radius:6px;font-family:Georgia,serif;font-size:15px;text-align:center;opacity:0;transition:opacity .5s;pointer-events:none}
+  #overlay{position:absolute;inset:0;background:rgba(6,5,12,.9);display:flex;align-items:center;justify-content:center;border-radius:6px}
+  #overlay.hidden{display:none}
+  .panel{max-width:600px;text-align:center;padding:24px;font-family:Georgia,serif}
+  .panel h2{color:#d8c89a;font-weight:normal;letter-spacing:3px;margin:0 0 14px}
+  .panel p{color:#bdb4da;margin:8px 0}
+  .panel .small{font-size:12px;color:#7d7596}
+  .panel .accent{color:#d8c89a}
+  #side{width:340px;display:flex;flex-direction:column;gap:10px}
+  .card{background:#13121c;border:1px solid #2a2740;border-radius:6px;padding:10px 12px}
+  .card h3{margin:0 0 6px;font:normal 13px Georgia,serif;letter-spacing:2px;color:#8e86a8;text-transform:uppercase}
+  .bar{height:12px;background:#23202f;border-radius:6px;overflow:hidden;margin:4px 0}
+  .bar>div{height:100%;border-radius:6px;transition:width .3s}
+  #hpfill{background:linear-gradient(90deg,#a14545,#d87a5a)}
+  #progfill{background:linear-gradient(90deg,#7a6db0,#d8c89a)}
+  .statline{display:flex;justify-content:space-between;font-size:13px;color:#a59cc4}
+  #question{font-family:Georgia,serif;color:#d8c89a;font-size:14px}
+  #log{height:210px;overflow-y:auto;font-size:12px;display:flex;flex-direction:column;gap:3px}
+  #log .e{color:#a59cc4}
+  #log .roll{color:#6d6488;font-size:11px}
+  #log .good{color:#9fd49a}
+  #log .bad{color:#e08a8a}
+  #log .sys{color:#d8c89a}
+  #minimap{background:#0e0e14;border-radius:4px;display:block;width:100%}
+  .help{font-size:12px;color:#7d7596}
+  button{background:#23203a;color:#d8c89a;border:1px solid #3a3358;border-radius:5px;padding:8px 12px;font:13px Georgia,serif;letter-spacing:1px;cursor:pointer}
+  button:hover{background:#2e2a4d}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="gamecol">
+    <canvas id="game" width="960" height="600"></canvas>
+    <div id="banner"></div>
+    <div id="overlay">
+      <div class="panel" id="panel"></div>
+    </div>
+  </div>
+  <aside id="side">
+    <div class="card">
+      <h3>Цель экспедиции</h3>
+      <div id="question">…</div>
+      <div class="statline" style="margin-top:6px"><span>Поиск ответа</span><span id="progtext">0/30</span></div>
+      <div class="bar"><div id="progfill" style="width:0%"></div></div>
+    </div>
+    <div class="card">
+      <div class="statline"><span>Здоровье</span><span id="hptext">12/12</span></div>
+      <div class="bar"><div id="hpfill" style="width:100%"></div></div>
+      <div class="statline"><span>Глубина: <b id="depthtext">0</b> (рекорд <span id="maxdepth">0</span>)</span><span>Комнат: <span id="roomcount">1</span></span></div>
+      <div class="statline"><span>Сид мира: <span id="seedtext">—</span></span><span id="timetext">0:00</span></div>
+    </div>
+    <div class="card">
+      <h3>Карта глубин</h3>
+      <canvas id="minimap" width="316" height="170"></canvas>
+    </div>
+    <div class="card">
+      <h3>Журнал</h3>
+      <div id="log"></div>
+    </div>
+    <div class="card help">
+      WASD / стрелки — движение. Подойдите к двери, чтобы пройти.
+      Голубые двери ведут глубже, тёплая — назад, золотая — наружу.
+      От существ можно убежать. R — новая игра.
+    </div>
+    <button id="btnNew">Новая экспедиция</button>
+  </aside>
+</div>
+
+<script>
+'use strict';
+// ============================================================ RNG
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;}}
+
+// ============================================================ ТАБЛИЦЫ (1d20 + Depth; отсортированы от обыденного к странному)
+const LOC=[
+ {n:'Вестибюль',d:'мраморный пол и гулкое эхо'},
+ {n:'Читальный зал',d:'ряды столов с зелёными лампами'},
+ {n:'Стеллажи беллетристики',d:'бесконечные ряды романов'},
+ {n:'Каталожный зал',d:'шкафы с тысячами ящичков'},
+ {n:'Газетный архив',d:'пожелтевшие подшивки до потолка'},
+ {n:'Кабинет переписчиков',d:'пюпитры, перья и чернильницы'},
+ {n:'Хранилище карт',d:'свитки, глобусы и атласы'},
+ {n:'Переплётная мастерская',d:'прессы, клей и обрезки кожи'},
+ {n:'Зал словарей',d:'тома размером с обеденный стол'},
+ {n:'Собрание скелетов',d:'каталогизированные кости в витринах'},
+ {n:'Книжная спираль',d:'стеллажи завиваются к невидимому потолку'},
+ {n:'Чернильный колодец',d:'в полу темнеет бездонный резервуар'},
+ {n:'Зал шёпотов',d:'книги бормочут со своих полок'},
+ {n:'Гербарий бумажных растений',d:'шелестящий сад из страниц'},
+ {n:'Портретная галерея',d:'нарисованные глаза провожают вас'},
+ {n:'Архив несбывшегося',d:'книги о том, чего никогда не было'},
+ {n:'Перевёрнутый зал',d:'стеллажи растут с потолка вниз'},
+ {n:'Лестница без конца',d:'ступени уходят во тьму в обе стороны'},
+ {n:'Запретное крыло',d:'цепи на переплётах, печати на дверях'},
+ {n:'Зал индексов',d:'здесь каталогизируют сами каталоги'},
+ {n:'Восковой скрипторий',d:'свечные люди пишут, не останавливаясь'},
+ {n:'Логово книжного червя',d:'туннели, проеденные в сплошной бумаге'},
+ {n:'Зал обратного времени',d:'свечи разгораются из огарков'},
+ {n:'Библиотека снов',d:'полки парят, не касаясь пола'},
+ {n:'Чернильное озеро',d:'берега из обложек, волны из букв'},
+ {n:'Зал забытых имён',d:'пустые корешки, стёртые таблички'},
+ {n:'Архив самой Библиотеки',d:'она пишет о себе, и страницы ещё влажные'},
+ {n:'Тронный зал Каталога',d:'алтарь, сложенный из карточек'},
+ {n:'Сердце Библиотеки',d:'переплетение всех историй сразу'},
+ {n:'Страница Ноль',d:'белизна, на которой ещё ничего не написано'}
+];
+const DET=[
+ 'потёртый ковёр с геральдическим узором','камин с тлеющими углями','латунные шестерни в стенах что-то проворачивают',
+ 'столетняя пыль лежит ровным слоем','забытый чайный сервиз на троих','оригами-птицы кружат под потолком',
+ 'лампы со светящимися чернилами','книжная тележка, брошенная на полпути','кошка — настоящая? бумажная? — спит на стеллаже',
+ 'свежие чернильные следы на полу','паутина из ленточек-закладок','опрокинутая лестница-стремянка',
+ 'шкаф, запертый на семь замков','окно, за которым не то, что должно быть','суфлёрская будка без всякого театра',
+ 'тихий хор голосов читает хором','буквы сползают со страниц на пол','застывший библиотекарь-статуя',
+ 'дыра в полу, заложенная энциклопедиями','музыкальная шкатулка играет задом наперёд','чернильные сталактиты под потолком',
+ 'двери, переплетённые в кожу','гнездо, свитое из черновиков','зеркало, отражающее другую комнату',
+ 'дождь из пепла сожжённых книг','корешки дышат в такт','пол из витрин с перьями легендарных авторов',
+ 'свечи горят чёрным пламенем','тень без хозяина листает том','тишина настолько плотная, что в ней вязнут шаги'
+];
+const BOOKS=['«Трактат о пыли»','«Атлас несуществующих морей»','«Грамматика птичьих языков»','«Полная история одного коридора»',
+ '«Словарь забытых имён»','«О природе свечного света»','«Перепись теней, том IX»','«Карты дна чернильных озёр»',
+ '«Жития безымянных святых»','«Руководство переплётчика душ»','«Хроники недописанного века»','«Азбука молчания»'];
+const ORDERS=['Пепельного ордена','Киноварного ордена','Лазурного ордена','Шафранового ордена','Полуночного ордена'];
+const QUIET=['Тихо. Только шелест страниц где-то вдалеке.','Пахнет старой бумагой и воском.','Пыль оседает за вами, как снег.',
+ 'Где-то капают чернила. Размеренно, как часы.','Полки тянутся ровно, безразлично.','Свет ламп здесь чуть теплее обычного.'];
+const STRANGE=['Все книги на полках на мгновение поворачиваются корешками внутрь.','Ваша тень листает невидимую книгу.',
+ 'Откуда-то доносится звонок библиотечного колокольчика. Дважды.','На секунду вам кажется, что комната вас прочитала.',
+ 'Пол едва заметно дышит.','Одна из ламп гаснет. Потом передумывает.'];
+const HAZARDS=['обвал книжной полки','провалившаяся половица','облако ядовитой книжной пыли','сорвавшийся с цепи том-капкан',
+ 'лопнувшая чернильная труба','паническое бегство стаи оригами'];
+const QUESTIONS=[
+ {q:'Как звали последнего короля затонувшей Кантреи?',a:'Его звали Маэл Третий, и он сам затопил своё королевство.'},
+ {q:'Каким рецептом чернил написана сама Библиотека?',a:'Сажа сожжённых черновиков, разведённая в полуночной тишине.'},
+ {q:'Где похоронен Первый Библиотекарь?',a:'Нигде: он переплетён и стоит на полке в Сердце Библиотеки.'},
+ {q:'Какое слово было произнесено первым?',a:'«Ещё». Всё остальное — примечания к нему.'},
+ {q:'Что находится на последней странице последней книги?',a:'Штамп «вернуть до конца времён» и ваша подпись.'},
+ {q:'Почему в Библиотеке никогда не бывает сквозняков?',a:'Потому что все ветры здесь давно каталогизированы и расставлены по полкам.'}
+];
+const CREATURE_TIERS=[
+ [{n:'пылевой элементаль',spd:52,r:13,c:'#9c94a8'},{n:'оживший том',spd:80,r:9,c:'#b07a4f'}],
+ [{n:'оригами-голем',spd:64,r:12,c:'#d8d2c0'},{n:'чернильная клякса',spd:90,r:10,c:'#4a4290'}],
+ [{n:'книжный червь',spd:72,r:16,c:'#7a9c6a'},{n:'безымянная тень',spd:98,r:11,c:'#36304f'}]
+];
+
+// ============================================================ ГЕОМЕТРИЯ
+const cv=document.getElementById('game'),ctx=cv.getContext('2d');
+const mm=document.getElementById('minimap'),mctx=mm.getContext('2d');
+const RX=70,RY=70,RW=cv.width-140,RH=cv.height-140,DW=64;
+const OPP={N:'S',S:'N',E:'W',W:'E'};
+
+function doorRect(door){
+  const f=door.f;
+  if(door.wall==='N')return{x:RX+f*(RW-DW),y:RY-9,w:DW,h:18};
+  if(door.wall==='S')return{x:RX+f*(RW-DW),y:RY+RH-9,w:DW,h:18};
+  if(door.wall==='W')return{x:RX-9,y:RY+f*(RH-DW),w:18,h:DW};
+  return{x:RX+RW-9,y:RY+f*(RH-DW),w:18,h:DW};
+}
+function doorEntryPos(wall,door){
+  const r=doorRect(door);
+  if(wall==='N')return{x:r.x+r.w/2,y:RY+40};
+  if(wall==='S')return{x:r.x+r.w/2,y:RY+RH-40};
+  if(wall==='W')return{x:RX+40,y:r.y+r.h/2};
+  return{x:RX+RW-40,y:r.y+r.h/2};
+}
+function circleRect(cx,cy,cr,r){
+  const nx=Math.max(r.x,Math.min(cx,r.x+r.w)),ny=Math.max(r.y,Math.min(cy,r.y+r.h));
+  return (cx-nx)**2+(cy-ny)**2 < cr*cr;
+}
+
+// ============================================================ СОСТОЯНИЕ
+let G=null,state='start',keys={},last=performance.now();
+
+function d20(){return 1+Math.floor(G.rng()*20);}
+function dN(n){return 1+Math.floor(G.rng()*n);}
+function pick(rng,arr){return arr[Math.floor(rng()*arr.length)];}
+
+function rollTable(arr,mod){
+  const die=d20(),raw=die+mod;
+  let idx=raw-1;
+  if(idx>=arr.length)idx=arr.length-1-Math.floor(G.rng()*5); // на самом дне — верх таблицы с разбросом
+  return{idx,die,raw};
+}
+
+function newGame(seed){
+  G={
+    seed:seed,rng:mulberry32(seed),rooms:[],current:0,
+    player:{x:0,y:0,hp:12,maxhp:12,inv:0},
+    progress:8,goal:30,answerFound:false,
+    question:null,depthCount:{},maxDepth:0,steps:0,time:0,doorLock:0,
+    flash:0
+  };
+  G.question=QUESTIONS[Math.floor(G.rng()*QUESTIONS.length)];
+  makeRoom(0,null,null);
+  const r0=G.rooms[0];
+  const exitDoor=r0.doors.find(d=>d.kind==='exit');
+  const p=doorEntryPos('S',exitDoor);
+  G.player.x=p.x;G.player.y=p.y;
+  r0.visited=true;
+  document.getElementById('log').innerHTML='';
+  logMsg('Вы входите в Стигийскую библиотеку.','sys');
+  logMsg('Цель: '+G.question.q,'sys');
+  refreshUI();
+  window.G=G; // для отладки
+}
+
+function makeRoom(depth,parentId,parentWall){
+  const id=G.rooms.length;
+  const rr=mulberry32(G.seed*31+id*7919+1);
+  let name,detail,locRoll=null,detRoll=null;
+  if(id===0){
+    name=LOC[0];detail=DET[Math.floor(rr()*6)];
+  }else{
+    locRoll=rollTable(LOC,depth);name=LOC[locRoll.idx];
+    detRoll=rollTable(DET,depth);detail=DET[detRoll.idx];
+  }
+  const doors=[];const used=new Set();
+  if(id===0){doors.push({wall:'S',kind:'exit',f:.5,target:-1,jump:0});used.add('S');}
+  else{const bw=OPP[parentWall];doors.push({wall:bw,kind:'back',f:.42+rr()*.16,target:parentId,jump:0});used.add(bw);}
+  const avail=['N','E','S','W'].filter(w=>!used.has(w));
+  const wr=rr();const want=wr<.5?1:(wr<.85?2:3);
+  for(let i=avail.length-1;i>0;i--){const j=Math.floor(rr()*(i+1));[avail[i],avail[j]]=[avail[j],avail[i]];}
+  for(const w of avail.slice(0,want)){doors.push({wall:w,kind:'deeper',f:.3+rr()*.4,target:null,jump:1});used.add(w);}
+  const furniture=genFurniture(rr);
+  if(!(depth in G.depthCount))G.depthCount[depth]=0;
+  const room={id,depth,name,detail,doors,furniture,creatures:[],visited:false,parentId,
+              mx:G.depthCount[depth]++,locRoll,detRoll};
+  G.rooms.push(room);
+  return room;
+}
+
+function genFurniture(rr){
+  const list=[];const n=2+Math.floor(rr()*4);
+  for(let t=0;t<n*6&&list.length<n;t++){
+    const vert=rr()<.45;
+    const w=vert?(22+rr()*10):(70+rr()*100), h=vert?(70+rr()*80):(22+rr()*10);
+    const x=RX+84+rr()*(RW-168-w), y=RY+84+rr()*(RH-168-h);
+    let ok=true;
+    for(const o of list){if(x<o.x+o.w+16&&x+w+16>o.x&&y<o.y+o.h+16&&y+h+16>o.y){ok=false;break;}}
+    if(!ok)continue;
+    const spines=[];const sn=Math.floor((vert?h:w)/7);
+    for(let i=0;i<sn;i++)spines.push(`hsl(${20+rr()*300},${30+rr()*30}%,${28+rr()*22}%)`);
+    list.push({x,y,w,h,vert,spines});
+  }
+  return list;
+}
+
+// ============================================================ СОБЫТИЯ
+function resolveEvent(room){
+  const die=d20(),roll=die+Math.floor(room.depth/2);
+  logMsg(`событие: d20(${die})+${Math.floor(room.depth/2)} = ${roll}`,'roll');
+  if(roll<=7){logMsg(pick(G.rng,QUIET),'e');}
+  else if(roll<=9){
+    const gain=dN(4)+Math.floor(room.depth/3);
+    addProgress(gain);
+    logMsg(`Полезная книга: ${pick(G.rng,BOOKS)} (+${gain} к поиску)`,'good');
+  }else if(roll<=11){
+    const gain=dN(3);addProgress(gain);
+    logMsg(`Библиотекарь ${pick(G.rng,ORDERS)} снисходит до пары ответов (+${gain} к поиску)`,'good');
+  }else if(roll<=13){logMsg(pick(G.rng,STRANGE),'e');}
+  else if(roll<=15){
+    const dmg=dN(3);hurt(dmg,`Опасность: ${pick(G.rng,HAZARDS)}`);
+  }else if(roll<=17){spawnCreature(room,Math.min(2,Math.floor(room.depth/4)));}
+  else if(roll===18){
+    if(G.rng()<.5){G.player.hp=Math.min(G.player.maxhp,G.player.hp+2);logMsg('Тайник: термос горячего чая (+2 HP)','good');}
+    else{const g=dN(4);addProgress(g);logMsg(`Тайник: редкая брошюра (+${g} к поиску)`,'good');}
+  }else if(roll===19){
+    const free=['N','E','S','W'].filter(w=>!room.doors.some(d=>d.wall===w));
+    if(free.length){room.doors.push({wall:free[0],kind:'deeper',f:.35+G.rng()*.3,target:null,jump:2});
+      logMsg('Короткий путь: провал, ведущий сразу на 2 глубины вниз','sys');}
+    else{addProgress(1);logMsg('Заметки на полях указывают путь (+1 к поиску)','good');}
+  }else if(roll<=21){addProgress(1);logMsg('Снизу доносится зов: то, что вы ищете, лежит глубже (+1 к поиску)','e');}
+  else{spawnCreature(room,2);hurt(1,'Из тьмы между полками что-то выплёскивается');}
+}
+
+function spawnCreature(room,tier){
+  const t=CREATURE_TIERS[Math.max(0,Math.min(2,tier))];
+  const proto=t[Math.floor(G.rng()*t.length)];
+  const c={...proto,x:RX+RW/2+(G.rng()-.5)*160,y:RY+RH/2+(G.rng()-.5)*100,wob:G.rng()*6};
+  room.creatures.push(c);
+  logMsg(`Существо: ${c.n}. Лучше не подпускать близко.`,'bad');
+}
+
+function addProgress(n){
+  G.progress=Math.min(G.goal+10,G.progress+n);
+  if(!G.answerFound&&G.progress>=G.goal){
+    G.answerFound=true;
+    logMsg('ОТВЕТ НАЙДЕН: '+G.question.a,'sys');
+    logMsg('Теперь выберитесь наружу через золотую дверь на глубине 0.','sys');
+    banner('Ответ найден! Возвращайтесь к выходу.');
+  }
+  refreshUI();
+}
+function hurt(dmg,why){
+  G.player.hp-=dmg;G.flash=.5;
+  logMsg(`${why} (−${dmg} HP)`,'bad');
+  refreshUI();
+  if(G.player.hp<=0){G.player.hp=0;gameOver(false);}
+}
+
+// ============================================================ ПЕРЕХОДЫ
+function useDoor(room,door){
+  if(door.kind==='exit'){
+    if(G.answerFound){gameOver(true);}
+    else{
+      logMsg('Уходить с пустыми руками? Знание ещё не найдено.','e');
+      G.player.y-=46;G.doorLock=.8;
+    }
+    return;
+  }
+  let firstVisit=false;
+  if(door.target===null){
+    const nr=makeRoom(room.depth+door.jump,room.id,door.wall);
+    door.target=nr.id;firstVisit=true;
+  }
+  const dest=G.rooms[door.target];
+  G.current=dest.id;G.steps++;G.doorLock=.5;
+  G.maxDepth=Math.max(G.maxDepth,dest.depth);
+  const inDoor=dest.doors.find(d=>d.target===room.id)||dest.doors[0];
+  const p=doorEntryPos(inDoor.wall,inDoor);
+  G.player.x=p.x;G.player.y=p.y;
+  if(firstVisit||!dest.visited){
+    dest.visited=true;
+    if(dest.locRoll)logMsg(`глубина ${dest.depth}: локация d20(${dest.locRoll.die})+${dest.depth} = ${dest.locRoll.raw}, деталь d20(${dest.detRoll.die})+${dest.depth} = ${dest.detRoll.raw}`,'roll');
+    logMsg(`Глубина ${dest.depth} — ${dest.name.n}: ${DET[dest.detRoll?dest.detRoll.idx:0]}`,'e');
+    banner(`«${dest.name.n}» — ${dest.detail}`);
+    resolveEvent(dest);
+  }else{
+    banner(`«${dest.name.n}» (глубина ${dest.depth})`);
+  }
+  refreshUI();
+}
+
+function gameOver(win){
+  state=win?'win':'lose';
+  const p=document.getElementById('panel');
+  const t=fmtTime(G.time);
+  if(win){
+    p.innerHTML=`<h2>ЗНАНИЕ ВЫНЕСЕНО</h2>
+      <p class="accent">${G.question.q}</p><p>${G.question.a}</p>
+      <p class="small">Комнат открыто: ${G.rooms.length} · рекорд глубины: ${G.maxDepth} · переходов: ${G.steps} · время: ${t} · HP: ${G.player.hp}/${G.player.maxhp}</p>
+      <p class="small">R или кнопка — новая экспедиция</p>`;
+  }else{
+    p.innerHTML=`<h2>БИБЛИОТЕКА ПОГЛОТИЛА ВАС</h2>
+      <p>Ваша история отправлена в каталог. Когда-нибудь её кто-то прочтёт.</p>
+      <p class="small">Комнат открыто: ${G.rooms.length} · рекорд глубины: ${G.maxDepth} · поиск: ${G.progress}/${G.goal} · время: ${t}</p>
+      <p class="small">R или кнопка — новая экспедиция</p>`;
+  }
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+function startScreen(){
+  state='start';
+  const p=document.getElementById('panel');
+  p.innerHTML=`<h2>СТИГИЙСКАЯ БИБЛИОТЕКА</h2>
+    <p>Бесконечная междумировая библиотека. Карта не нарисована — комнаты возникают броском <span class="accent">d20 + глубина</span>, когда вы открываете дверь. Чем глубже, тем страннее и опаснее.</p>
+    <p>Вопрос экспедиции:<br><span class="accent">${G.question.q}</span></p>
+    <p>Читайте книги и говорите с библиотекарями, доведите поиск до ${G.goal} — затем вернитесь к выходу живым.</p>
+    <p class="small">Enter или клик — войти · WASD/стрелки — движение</p>`;
+  document.getElementById('overlay').classList.remove('hidden');
+}
+
+// ============================================================ ОБНОВЛЕНИЕ
+function update(dt){
+  if(state!=='play')return;
+  G.time+=dt;
+  if(G.doorLock>0)G.doorLock-=dt;
+  if(G.player.inv>0)G.player.inv-=dt;
+  if(G.flash>0)G.flash-=dt;
+  const room=G.rooms[G.current],pl=G.player,SPD=200;
+  let vx=0,vy=0;
+  if(keys['w']||keys['ц']||keys['arrowup'])vy-=1;
+  if(keys['s']||keys['ы']||keys['arrowdown'])vy+=1;
+  if(keys['a']||keys['ф']||keys['arrowleft'])vx-=1;
+  if(keys['d']||keys['в']||keys['arrowright'])vx+=1;
+  if(vx&&vy){vx*=.7071;vy*=.7071;}
+  const r=10;
+  let nx=pl.x+vx*SPD*dt;
+  if(!room.furniture.some(f=>circleRect(nx,pl.y,r,f)))pl.x=nx;
+  let ny=pl.y+vy*SPD*dt;
+  if(!room.furniture.some(f=>circleRect(pl.x,ny,r,f)))pl.y=ny;
+  pl.x=Math.max(RX+16,Math.min(RX+RW-16,pl.x));
+  pl.y=Math.max(RY+16,Math.min(RY+RH-16,pl.y));
+  // двери
+  if(G.doorLock<=0){
+    for(const door of room.doors){
+      const dr=doorRect(door);
+      const trig={x:dr.x-4,y:dr.y-4,w:dr.w+8,h:dr.h+8};
+      if(circleRect(pl.x,pl.y,r+6,trig)){useDoor(room,door);break;}
+    }
+  }
+  // существа
+  for(const c of room.creatures){
+    const dx=pl.x-c.x,dy=pl.y-c.y,dist=Math.hypot(dx,dy)||1;
+    c.x+=dx/dist*c.spd*dt;c.y+=dy/dist*c.spd*dt;
+    c.x=Math.max(RX+c.r,Math.min(RX+RW-c.r,c.x));
+    c.y=Math.max(RY+c.r,Math.min(RY+RH-c.r,c.y));
+    if(dist<c.r+r&&pl.inv<=0){
+      pl.inv=1.4;
+      hurt(1,`${c.n} дотягивается до вас`);
+      const kx=dx/dist*52,ky=dy/dist*52;
+      pl.x=Math.max(RX+16,Math.min(RX+RW-16,pl.x+kx));
+      pl.y=Math.max(RY+16,Math.min(RY+RH-16,pl.y+ky));
+    }
+  }
+}
+
+// ============================================================ РИСОВАНИЕ
+function draw(){
+  const room=G.rooms[G.current],pl=G.player,t=performance.now()/1000;
+  const depth=room.depth;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  // фон вне комнаты
+  ctx.fillStyle=`hsl(248,22%,${Math.max(4,9-depth*.3)}%)`;
+  ctx.fillRect(0,0,cv.width,cv.height);
+  // пол
+  ctx.fillStyle=`hsl(${36-depth*6},${Math.max(6,22-depth)}%,${Math.max(8,17-depth*.6)}%)`;
+  ctx.fillRect(RX,RY,RW,RH);
+  ctx.strokeStyle='rgba(255,255,255,.03)';ctx.lineWidth=1;
+  for(let gx=RX+40;gx<RX+RW;gx+=40){ctx.beginPath();ctx.moveTo(gx,RY);ctx.lineTo(gx,RY+RH);ctx.stroke();}
+  for(let gy=RY+40;gy<RY+RH;gy+=40){ctx.beginPath();ctx.moveTo(RX,gy);ctx.lineTo(RX+RW,gy);ctx.stroke();}
+  // стены
+  ctx.strokeStyle=`hsl(258,${20+depth*2}%,${Math.max(16,30-depth)}%)`;ctx.lineWidth=12;
+  ctx.strokeRect(RX-6,RY-6,RW+12,RH+12);
+  // мебель
+  for(const f of room.furniture){
+    ctx.fillStyle='#241a12';ctx.fillRect(f.x-2,f.y-2,f.w+4,f.h+4);
+    for(let i=0;i<f.spines.length;i++){
+      ctx.fillStyle=f.spines[i];
+      if(f.vert)ctx.fillRect(f.x+3,f.y+3+i*7,f.w-6,5);
+      else ctx.fillRect(f.x+3+i*7,f.y+3,5,f.h-6);
+    }
+  }
+  // двери
+  for(const door of room.doors){
+    const dr=doorRect(door);
+    const col=door.kind==='exit'?'#ffd76a':door.kind==='back'?'#d8c89a':(door.jump>1?'#c08bff':'#7fb4ff');
+    ctx.fillStyle='#06060a';ctx.fillRect(dr.x,dr.y,dr.w,dr.h);
+    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(dr.x,dr.y,dr.w,dr.h);
+    const glow=.5+.3*Math.sin(t*3+dr.x);
+    ctx.globalAlpha=glow;ctx.strokeRect(dr.x-3,dr.y-3,dr.w+6,dr.h+6);ctx.globalAlpha=1;
+    ctx.fillStyle=col;ctx.font='11px Georgia';ctx.textAlign='center';
+    const label=door.kind==='exit'?'выход':door.kind==='back'?'назад':(door.jump>1?'вниз x2':'глубже');
+    let lx=dr.x+dr.w/2,ly=dr.y+dr.h/2;
+    if(door.wall==='N')ly=dr.y+dr.h+16;else if(door.wall==='S')ly=dr.y-9;
+    else if(door.wall==='W'){lx=dr.x+dr.w+26;ly+=4;}else{lx=dr.x-26;ly+=4;}
+    ctx.fillText(label,lx,ly);
+  }
+  // существа
+  for(const c of room.creatures){
+    const wob=Math.sin(t*5+c.wob)*2;
+    ctx.fillStyle=c.c;ctx.beginPath();ctx.arc(c.x,c.y+wob,c.r,0,7);ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.85)';
+    ctx.beginPath();ctx.arc(c.x-c.r*.3,c.y+wob-2,1.8,0,7);ctx.arc(c.x+c.r*.3,c.y+wob-2,1.8,0,7);ctx.fill();
+  }
+  // игрок
+  if(!(pl.inv>0&&Math.floor(t*10)%2===0)){
+    const lg=ctx.createRadialGradient(pl.x,pl.y,2,pl.x,pl.y,46);
+    lg.addColorStop(0,'rgba(255,220,140,.25)');lg.addColorStop(1,'rgba(255,220,140,0)');
+    ctx.fillStyle=lg;ctx.beginPath();ctx.arc(pl.x,pl.y,46,0,7);ctx.fill();
+    ctx.fillStyle='#e8dca8';ctx.beginPath();ctx.arc(pl.x,pl.y,10,0,7);ctx.fill();
+    ctx.strokeStyle='#6b5d3a';ctx.lineWidth=2;ctx.stroke();
+  }
+  // фонарь: тьма растёт с глубиной
+  const visR=Math.max(200,360-depth*12);
+  const dark=Math.min(.93,.30+depth*.05);
+  const dg=ctx.createRadialGradient(pl.x,pl.y,60,pl.x,pl.y,visR);
+  dg.addColorStop(0,'rgba(0,0,0,0)');dg.addColorStop(1,`rgba(2,1,8,${dark})`);
+  ctx.fillStyle=dg;ctx.fillRect(0,0,cv.width,cv.height);
+  // вспышка урона
+  if(G.flash>0){ctx.fillStyle=`rgba(120,10,30,${G.flash*.4})`;ctx.fillRect(0,0,cv.width,cv.height);}
+  // HUD
+  ctx.fillStyle='#d8c89a';ctx.font='16px Georgia';ctx.textAlign='left';
+  ctx.fillText(`Глубина ${depth}`,16,28);
+  ctx.textAlign='center';ctx.fillStyle='rgba(216,200,154,.75)';ctx.font='14px Georgia';
+  ctx.fillText(room.name.n,cv.width/2,cv.height-14);
+  drawMinimap();
+}
+
+function drawMinimap(){
+  mctx.clearRect(0,0,mm.width,mm.height);
+  mctx.fillStyle='#0e0e14';mctx.fillRect(0,0,mm.width,mm.height);
+  const cur=G.rooms[G.current];
+  const rowH=17,nodeW=17;
+  let oy=24-Math.max(0,cur.depth-4)*rowH;
+  const cx0=20;
+  mctx.font='9px sans-serif';mctx.textAlign='right';
+  for(const r of G.rooms){
+    const x=cx0+18+r.mx*nodeW,y=oy+r.depth*rowH;
+    if(y<-10||y>mm.height+10)continue;
+    if(r.parentId!==null){
+      const p=G.rooms[r.parentId];
+      const px=cx0+18+p.mx*nodeW,py=oy+p.depth*rowH;
+      mctx.strokeStyle='rgba(140,130,180,.35)';mctx.lineWidth=1;
+      mctx.beginPath();mctx.moveTo(px,py);mctx.lineTo(x,y);mctx.stroke();
+    }
+  }
+  const seenDepth=new Set();
+  for(const r of G.rooms){
+    const x=cx0+18+r.mx*nodeW,y=oy+r.depth*rowH;
+    if(y<-10||y>mm.height+10)continue;
+    if(!seenDepth.has(r.depth)){
+      seenDepth.add(r.depth);
+      mctx.fillStyle='#564f72';mctx.fillText(String(r.depth),cx0+6,y+3);
+    }
+    mctx.fillStyle=r.id===G.current?'#ffd76a':(r.creatures.length?'#a86060':'#7a6db0');
+    mctx.fillRect(x-4,y-4,8,8);
+  }
+  mctx.strokeStyle='#2a2740';mctx.strokeRect(.5,.5,mm.width-1,mm.height-1);
+}
+
+// ============================================================ UI
+function refreshUI(){
+  document.getElementById('question').textContent=G.answerFound?('Ответ: '+G.question.a):G.question.q;
+  document.getElementById('progtext').textContent=`${G.progress}/${G.goal}`;
+  document.getElementById('progfill').style.width=Math.min(100,G.progress/G.goal*100)+'%';
+  document.getElementById('hptext').textContent=`${G.player.hp}/${G.player.maxhp}`;
+  document.getElementById('hpfill').style.width=(G.player.hp/G.player.maxhp*100)+'%';
+  document.getElementById('depthtext').textContent=G.rooms[G.current].depth;
+  document.getElementById('maxdepth').textContent=G.maxDepth;
+  document.getElementById('roomcount').textContent=G.rooms.length;
+  document.getElementById('seedtext').textContent=G.seed;
+}
+function fmtTime(s){return Math.floor(s/60)+':'+String(Math.floor(s%60)).padStart(2,'0');}
+function logMsg(text,cls){
+  const el=document.createElement('div');el.className=cls||'e';el.textContent=text;
+  const log=document.getElementById('log');log.appendChild(el);
+  while(log.children.length>80)log.removeChild(log.firstChild);
+  log.scrollTop=log.scrollHeight;
+}
+let bannerTimer=null;
+function banner(text){
+  const b=document.getElementById('banner');
+  b.textContent=text;b.style.opacity=1;
+  clearTimeout(bannerTimer);
+  bannerTimer=setTimeout(()=>{b.style.opacity=0;},3600);
+}
+
+// ============================================================ ВВОД И ЦИКЛ
+window.addEventListener('keydown',e=>{
+  const k=e.key.toLowerCase();
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k))e.preventDefault();
+  keys[k]=true;
+  if(k==='enter'&&state==='start'){state='play';document.getElementById('overlay').classList.add('hidden');}
+  if(k==='r'&&state!=='start'){newGame(10000+Math.floor(Math.random()*90000));startScreen();}
+});
+window.addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;});
+document.getElementById('overlay').addEventListener('click',()=>{
+  if(state==='start'){state='play';document.getElementById('overlay').classList.add('hidden');}
+});
+document.getElementById('btnNew').addEventListener('click',()=>{
+  newGame(10000+Math.floor(Math.random()*90000));startScreen();
+});
+
+function loop(now){
+  const dt=Math.min(.05,(now-last)/1000);last=now;
+  update(dt);
+  if(G)draw();
+  document.getElementById('timetext').textContent=G?fmtTime(G.time):'0:00';
+  requestAnimationFrame(loop);
+}
+
+newGame(10000+Math.floor(Math.random()*90000));
+startScreen();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>
